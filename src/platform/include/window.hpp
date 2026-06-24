@@ -16,4 +16,5 @@ public:
 	void isVisible() const;
 	
 	static bool process(); 
+	char const* const* getExtensions(uint32_t& count);
 };

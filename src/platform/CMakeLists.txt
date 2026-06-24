@@ -1,7 +1,8 @@
 add_library(platform STATIC
 	window.cpp
 	log.cpp
-	eventManager.cpp)
+	eventManager.cpp
+	windowVulkan.cpp)
 
 target_include_directories(platform 
 	PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
