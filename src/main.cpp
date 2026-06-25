@@ -1,6 +1,7 @@
 #include<iostream>
 #include<log.hpp>
 #include<window.hpp>
+#include<device.hpp>
 
 void logTest(){
 	LOG_TRACE << "this is a trace message";
@@ -42,6 +43,11 @@ int main(){
 
 	Window win("test", 1080, 720);
 	win.show(true);
+
+	uint32_t c;
+	auto ex = win.getExtensions(c);
+	std::vector<char const*> extensions(ex, ex + c);
+	Device dev(extensions);
 
 	while(win.process()){
 
