@@ -11,6 +11,7 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/core/null_deleter.hpp>
 #include <boost/make_shared.hpp>
+#include<boost/log/expressions/formatters/char_decorator.hpp>
 
 namespace logging = boost::log;
 namespace src = logging::sources;
@@ -51,12 +52,18 @@ void initLogger(){
 	using ConsoleSink = sink::synchronous_sink<sink::text_ostream_backend>;
 	auto sink = boost::make_shared<ConsoleSink>(backend);
 
+	std::array<const char*, 1> find = {
+		"\n"
+	};
+	std::array<const char*, 1> replace = {
+		"\n\t"
+	};
 	sink->set_formatter(
-		expr::stream
+		expr::stream 
 		<< '[' << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S") << "] "
 		<< '[' << expr::attr<const char*>("Channel") << "] "
 		<< '[' << expr::attr<LogSeverity>("Severity") << "] "
-		<< expr::message
+		<< expr::char_decor(find, replace) [ expr::stream << expr::message ]
 	);
 
 	logging::core::get()->add_sink(sink);
