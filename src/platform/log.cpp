@@ -13,6 +13,7 @@
 #include <boost/make_shared.hpp>
 #include<boost/log/expressions/formatters/char_decorator.hpp>
 #include<string_view>
+#include<boost/container/flat_map.hpp>
 
 namespace logging = boost::log;
 namespace src = logging::sources;
@@ -76,8 +77,7 @@ void dispatchLogMessage(const char* channel, LogSeverity s, const std::string m)
 }
 
 void setFilter(LogSeverity s, const char* ch){
-	using MinSeverityFilter = expr::channel_severity_filter_actor<std::string_view, LogSeverity>;
-	static MinSeverityFilter minSeverity = expr::channel_severity_filter(channel, severity);
+	static boost::container::flat_map<std::string_view, LogSeverity> minSeverity;
 	static auto minGlobalSeverity = LogSeverity::trace;
 
 	if(ch)
@@ -85,8 +85,17 @@ void setFilter(LogSeverity s, const char* ch){
 	else
 		minGlobalSeverity = s;
 	
-	logging::core::get()->set_filter(
-		minSeverity || severity >= minGlobalSeverity
+	logging::core::get()->set_filter([&](boost::log::attribute_value_set const& attributes) -> bool{
+		auto chan = attributes["Channel"].extract<std::string_view>();
+		auto sev = attributes["Severity"].extract<LogSeverity>();
+		if(!chan || !sev)
+			return false;
+		
+		if(minSeverity.contains(chan.get()))
+			return minSeverity.at(chan.get()) <= sev.get();
+		else
+			return minGlobalSeverity <= sev.get();
+	}
 	);
 	
 }
