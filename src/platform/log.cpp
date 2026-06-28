@@ -12,6 +12,7 @@
 #include <boost/core/null_deleter.hpp>
 #include <boost/make_shared.hpp>
 #include<boost/log/expressions/formatters/char_decorator.hpp>
+#include<string_view>
 
 namespace logging = boost::log;
 namespace src = logging::sources;
@@ -19,10 +20,10 @@ namespace sink = logging::sinks;
 namespace expr = logging::expressions;
 namespace key = logging::keywords;
 
-using Logger = logging::sources::severity_channel_logger_mt<LogSeverity, const char*>;
+using Logger = logging::sources::severity_channel_logger_mt<LogSeverity, std::string_view>;
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", LogSeverity);
-BOOST_LOG_ATTRIBUTE_KEYWORD(channel, "Channel", const char*);
+BOOST_LOG_ATTRIBUTE_KEYWORD(channel, "Channel", std::string_view);
 
 std::ostream& operator<<(std::ostream& strm, LogSeverity s){
 	static const char* names[] = {
@@ -61,7 +62,7 @@ void initLogger(){
 	sink->set_formatter(
 		expr::stream 
 		<< '[' << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S") << "] "
-		<< '[' << expr::attr<const char*>("Channel") << "] "
+		<< '[' << expr::attr<std::string_view>("Channel") << "] "
 		<< '[' << expr::attr<LogSeverity>("Severity") << "] "
 		<< expr::char_decor(find, replace) [ expr::stream << expr::message ]
 	);
@@ -75,7 +76,7 @@ void dispatchLogMessage(const char* channel, LogSeverity s, const std::string m)
 }
 
 void setFilter(LogSeverity s, const char* ch){
-	using MinSeverityFilter = expr::channel_severity_filter_actor<const char*, LogSeverity>;
+	using MinSeverityFilter = expr::channel_severity_filter_actor<std::string_view, LogSeverity>;
 	static MinSeverityFilter minSeverity = expr::channel_severity_filter(channel, severity);
 	static auto minGlobalSeverity = LogSeverity::trace;
 
