@@ -40,6 +40,7 @@ void logTest(){
 int main(){
 	initLogger();
 	setFilter(LogSeverity::debug);
+	setFilter(LogSeverity::error, "RHI");
 
 	Window win("test", 1080, 720);
 	win.show(true);
@@ -47,7 +48,11 @@ int main(){
 	uint32_t c;
 	auto ex = win.getExtensions(c);
 	std::vector<char const*> extensions(ex, ex + c);
-	Device dev(extensions);
+	//temporaru lambda
+	Device dev(extensions, [](VkInstance&) -> VkSurfaceKHR& {
+		static VkSurfaceKHR surf{};
+		return surf;
+	});
 
 	while(win.process()){
 
