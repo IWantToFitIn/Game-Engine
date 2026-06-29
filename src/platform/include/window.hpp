@@ -17,4 +17,6 @@ public:
 	
 	static bool process(); 
 	char const* const* getExtensions(uint32_t& count);
+
+	void* getInternal() const { return mInstance; }
 };

@@ -2,6 +2,7 @@
 #include<log.hpp>
 #include<window.hpp>
 #include<device.hpp>
+#include<context.hpp>
 
 void logTest(){
 	LOG_TRACE << "this is a trace message";
@@ -40,7 +41,7 @@ void logTest(){
 int main(){
 	initLogger();
 	setFilter(LogSeverity::debug);
-	setFilter(LogSeverity::error, "RHI");
+	setFilter(LogSeverity::warning, "RHI");
 
 	Window win("test", 1080, 720);
 	win.show(true);
@@ -48,11 +49,12 @@ int main(){
 	uint32_t c;
 	auto ex = win.getExtensions(c);
 	std::vector<char const*> extensions(ex, ex + c);
-	//temporaru lambda
-	Device dev(extensions, [](VkInstance&) -> VkSurfaceKHR& {
-		static VkSurfaceKHR surf{};
+	VkSurfaceKHR surf{};
+	Device dev(extensions, [&win, &surf](VkInstance& instance) -> VkSurfaceKHR& {
+		surf = createSurface(instance, win.getInternal());
 		return surf;
 	});
+	Context con(dev, std::move(surf), 1080, 720);
 
 	while(win.process()){
 

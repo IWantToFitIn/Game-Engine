@@ -157,12 +157,16 @@ void Device::createDevice(VkSurfaceKHR& initialSurface){
 			.pQueuePriorities = priorities
 		});
 	VkPhysicalDeviceFeatures features{};
+	std::vector<const char*> extensions = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	};
 	VkDeviceCreateInfo create = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 		.queueCreateInfoCount = queueInfos.size(),
 		.pQueueCreateInfos = queueInfos.data(),
 		.enabledLayerCount = 0,
-		.enabledExtensionCount = 0,
+		.enabledExtensionCount = extensions.size(),
+		.ppEnabledExtensionNames = extensions.data(),
 		.pEnabledFeatures = &features
 	};
 	if(vkCreateDevice(mPhysDev, &create, nullptr, &mDevice) != VK_SUCCESS)

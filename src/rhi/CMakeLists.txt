@@ -1,5 +1,7 @@
 add_library(rhi STATIC
 	device.cpp
+	context.cpp
+	surface.cpp
 )
 target_include_directories(rhi
 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include

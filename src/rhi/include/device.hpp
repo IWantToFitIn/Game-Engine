@@ -23,4 +23,7 @@ class Device{
 public:
 	Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(VkInstance&)> surfaceCreator);
 	~Device();
+	VkInstance getInstance() const { return mInstance; }
+	VkDevice getDevice() const { return mDevice; }
+	VkPhysicalDevice getPhysical() const { return mPhysDev; }
 };
