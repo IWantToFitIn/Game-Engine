@@ -1,4 +1,5 @@
 #include"include/context.hpp"
+#include"vulkanRegistry.hpp"
 #include<algorithm>
 #include<limits>
 #include<log.hpp>
@@ -55,6 +56,7 @@ VkExtent2D Context::chooseExtent(uint32_t width, uint32_t height){
 	};
 }
 
+REGISTER_DEVICE_EXTENSION(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
 void Context::createSwapchain(uint32_t width, uint32_t height){
 	VkSurfaceCapabilitiesKHR cap;
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mDevice.getPhysical(), mSurface, &cap);

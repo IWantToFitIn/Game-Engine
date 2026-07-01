@@ -1,5 +1,6 @@
 #include"include/device.hpp"
 #include"debugExtension.hpp"
+#include"vulkanRegistry.hpp"
 #include<vulkan/vulkan.h>
 #include<log.hpp>
 #include<vector>
@@ -157,16 +158,14 @@ void Device::createDevice(VkSurfaceKHR& initialSurface){
 			.pQueuePriorities = priorities
 		});
 	VkPhysicalDeviceFeatures features{};
-	std::vector<const char*> extensions = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME
-	};
+	auto devExtensions = VulkanRegistry::getDeviceExtensions();
 	VkDeviceCreateInfo create = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 		.queueCreateInfoCount = queueInfos.size(),
 		.pQueueCreateInfos = queueInfos.data(),
 		.enabledLayerCount = 0,
-		.enabledExtensionCount = extensions.size(),
-		.ppEnabledExtensionNames = extensions.data(),
+		.enabledExtensionCount = devExtensions.size(),
+		.ppEnabledExtensionNames = devExtensions.data(),
 		.pEnabledFeatures = &features
 	};
 	if(vkCreateDevice(mPhysDev, &create, nullptr, &mDevice) != VK_SUCCESS)
@@ -190,7 +189,11 @@ Device::Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(
 	bool validationEnabled = getValidationLayersSupport();
 	if(!validationEnabled)
 		LOG_WARN << "vulkan validation layers not supported";
-
+	auto registeredInstanceExtensions = VulkanRegistry::getInstanceExtensions();
+	extensions.insert(extensions.end(), 
+		registeredInstanceExtensions.begin(), 
+		registeredInstanceExtensions.end()
+	);
 	createInstance(extensions, validationEnabled);
 	pickPhysicalDevice();
 	auto& surf = surfaceCreator(mInstance);
