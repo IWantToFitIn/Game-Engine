@@ -6,10 +6,52 @@
 #include<vector>
 #include<cstring>
 #include<unordered_map>
+#include<VulkanDep.hpp>
+#include<algorithm>
 
 constexpr auto gValidationLayers = {
 	"VK_LAYER_KHRONOS_validation"
 };
+
+bool Device::checkExtensionCompatibility(std::string_view extName){
+	if (extName == "VK_VERSION_1_1") return mVersion >= VK_API_VERSION_1_1;
+	if (extName == "VK_VERSION_1_2") return mVersion >= VK_API_VERSION_1_2;
+	if (extName == "VK_VERSION_1_3") return mVersion >= VK_API_VERSION_1_3;
+	if (extName == "VK_VERSION_1_4") return mVersion >= VK_API_VERSION_1_4;
+
+	//TODO check the actual extensions for support
+	return true;
+}
+
+void Device::getExtensionDependencies(std::string_view extName, std::unordered_set<std::string_view>& result, bool devOverInstance){
+	if(result.count(extName)) return;
+	if(extName == "VK_VERSION_1_1" || extName == "VK_VERSION_1_2" || extName == "VK_VERSION_1_3" || extName == "VK_VERSION_1_4")
+		return;
+
+	auto search = std::lower_bound(gDependencyMap.begin(), gDependencyMap.end(), extName, [](const Mapping& m, std::string_view n){
+		return m.extensionName < n;
+	});
+
+	if(search == gDependencyMap.end() || search->extensionName != extName)
+		LOG_WARN << "vulkan extension \"" << extName << "\" not found in extension dependency map";
+	else{
+		const Mapping& mapping = *search;
+		if(mapping.exType == (devOverInstance ? ExtensionType::Device : ExtensionType::Instance))
+			result.emplace(mapping.extensionName);
+		for(const auto& path : mapping.depPaths){
+			bool valid = true;
+			for(const auto& dep : path){
+				valid &= checkExtensionCompatibility(dep);
+				if(!valid) break;
+			}
+			if(valid){
+				for(const auto& dep : path)
+					getExtensionDependencies(dep, result, devOverInstance);
+				break;
+			}
+		}
+	}
+}
 
 int Device::scoreDevice(VkPhysicalDevice dev){
 	//TODO
@@ -56,7 +98,6 @@ bool Device::getValidationLayersSupport(){
 }
 
 void Device::createInstance(std::vector<const char*> extensions, bool enableValidation){
-	bool extensionsSupported = true; //TODO
 	if(enableValidation)
 		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	
@@ -73,8 +114,8 @@ void Device::createInstance(std::vector<const char*> extensions, bool enableVali
 		.pApplicationInfo = &appInfo,
 		.enabledLayerCount = enableValidation ? (uint32_t) gValidationLayers.size() : 0,
 		.ppEnabledLayerNames = enableValidation ? gValidationLayers.begin() : nullptr,
-		.enabledExtensionCount = extensionsSupported ? (uint32_t) extensions.size() : 0,
-		.ppEnabledExtensionNames = extensionsSupported ? extensions.data() : nullptr
+		.enabledExtensionCount = (uint32_t) extensions.size(),
+		.ppEnabledExtensionNames = extensions.data()
 	};
 	if(vkCreateInstance(&createInfo, nullptr, &mInstance) != VK_SUCCESS)
 		LOG_FATAL << "failed to create vulkan instance";
@@ -113,12 +154,12 @@ void Device::getQueueFamilies(uint32_t& present, uint32_t& graphics, uint32_t& c
 				return i;
 			i++;
 		}
+		return -1;
 	};
 	graphics = findIndex(VK_QUEUE_GRAPHICS_BIT);
 	compute = findIndex(VK_QUEUE_COMPUTE_BIT);
 	transfer = findIndex(VK_QUEUE_TRANSFER_BIT);
 	
-	//in case it wasn't 0 initialized
 	present = 0;
 	for(auto& family : properties){
 		VkBool32 presentSupport = false;
@@ -145,20 +186,31 @@ void Device::createDevice(VkSurfaceKHR& initialSurface){
 	families[compute] = 1;
 	families[transfer] = 1;
 
-	//TODO? i think transfer and present should be highest
 	float priorities[] = {
 		1.0f, 1.0f, 1.0f, 1.0f
 	};
 	std::vector<VkDeviceQueueCreateInfo> queueInfos = {};
 	for(auto& [family, count] : families)
-		queueInfos.emplace_back(VkDeviceQueueCreateInfo{
-			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-			.queueFamilyIndex = family,
-			.queueCount = count,
-			.pQueuePriorities = priorities
-		});
+		if(family != -1)
+			queueInfos.emplace_back(VkDeviceQueueCreateInfo{
+				.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+				.queueFamilyIndex = family,
+				.queueCount = count,
+				.pQueuePriorities = priorities
+			});
+		else
+			LOG_WARN << "family for vulkan queue not found";
 	VkPhysicalDeviceFeatures features{};
+
 	auto devExtensions = VulkanRegistry::getDeviceExtensions();
+	std::unordered_set<std::string_view> deps;
+	for(const auto& neededExt : devExtensions)
+		getExtensionDependencies(neededExt, deps, true);
+	devExtensions.clear();
+	devExtensions.reserve(deps.size());
+	for(const auto& dep : deps)
+		devExtensions.push_back(dep.data());
+
 	VkDeviceCreateInfo create = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 		.queueCreateInfoCount = queueInfos.size(),

@@ -3,9 +3,12 @@
 #include<vector>
 #include<optional>
 #include<functional>
+#include<string_view>
+#include<unordered_set>
 
 class Device{
 	VkInstance mInstance;
+	uint32_t mVersion;
 	std::optional<VkDebugUtilsMessengerEXT> mDebugMessenger;
 	VkPhysicalDevice mPhysDev;
 	VkDevice mDevice;
@@ -14,6 +17,8 @@ class Device{
 	VkQueue mComputeQueue;
 	VkQueue mTransferQueue;
 
+	bool checkExtensionCompatibility(std::string_view);
+	void getExtensionDependencies(std::string_view, std::unordered_set<std::string_view>&, bool devOrInstance);
 	int scoreDevice(VkPhysicalDevice);
 	void pickPhysicalDevice();
 	bool getValidationLayersSupport();
