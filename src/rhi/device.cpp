@@ -241,11 +241,20 @@ Device::Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(
 	bool validationEnabled = getValidationLayersSupport();
 	if(!validationEnabled)
 		LOG_WARN << "vulkan validation layers not supported";
-	auto registeredInstanceExtensions = VulkanRegistry::getInstanceExtensions();
-	extensions.insert(extensions.end(), 
-		registeredInstanceExtensions.begin(), 
-		registeredInstanceExtensions.end()
-	);
+	
+	std::unordered_set<std::string_view> instanceExtenstions{};
+	for(const auto& ext : VulkanRegistry::getInstanceExtensions())
+		getExtensionDependencies(ext, instanceExtenstions, false);
+	for(const auto& ext : extensions)
+		getExtensionDependencies(ext, instanceExtenstions, false);
+	for(const auto& ext : VulkanRegistry::getDeviceExtensions())
+		getExtensionDependencies(ext, instanceExtenstions, false);
+
+	extensions.clear();
+	extensions.reserve(instanceExtenstions.size());
+	for(const auto& ext : instanceExtenstions)
+		extensions.push_back(ext.data());
+	
 	createInstance(extensions, validationEnabled);
 	pickPhysicalDevice();
 	auto& surf = surfaceCreator(mInstance);
