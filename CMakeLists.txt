@@ -8,4 +8,15 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 # for any generated files
 set(GEN_OUT_DIR "${CMAKE_SOURCE_DIR}/gen")
 
+include(FetchContent)
+set(SPIRV_REFLECT_INSTALL OFF)
+set(SPIRV_REFLECT_EXECUTABLE OFF)
+set(SPIRV_REFLECT_STATIC_LIB ON)
+FetchContent_Declare(
+	spirv-reflect
+	GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Reflect
+	GIT_TAG main
+	OVERRIDE_FIND_PACKAGE
+)
+
 add_subdirectory(src)

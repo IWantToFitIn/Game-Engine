@@ -81,6 +81,7 @@ void Context::createSwapchain(uint32_t width, uint32_t height){
 
 	if(vkCreateSwapchainKHR(mDevice.getDevice(), &createInfo ,nullptr, &mSwapchain) != VK_SUCCESS)
 		LOG_ERROR << "failed to create vulkan swapchain";
+	mFormat = format.format;
 }
 
 void Context::createImages(){
@@ -131,4 +132,8 @@ Context::~Context(){
 
 VkSurfaceKHR& Context::getSurface(){
 	return mSurface;
+}
+
+VkFormat& Context::getFormat(){
+	return mFormat;
 }
