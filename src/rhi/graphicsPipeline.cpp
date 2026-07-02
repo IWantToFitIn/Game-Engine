@@ -101,7 +101,7 @@ void GraphicsPipeline::createPipeline(std::vector<Shader>& shaders, VkFormat& sw
 		.stencilAttachmentFormat = VK_FORMAT_UNDEFINED
 	};
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-	for(auto shader : shaders)
+	for(auto& shader : shaders)
 		shaderStages.push_back(shader.getStageInfo());
 	VkGraphicsPipelineCreateInfo create = {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,

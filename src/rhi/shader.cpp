@@ -51,7 +51,17 @@ Shader::Shader(Device& dev, std::vector<uint32_t> data) : mDevice(dev){
 	reflectShader(data);
 }
 
+Shader::Shader(Shader&& o) : mDevice(o.mDevice){
+	mShader = o.mShader;
+	mEntry = o.mEntry;
+	mAttributes = o.mAttributes;
+	mBindings = o.mBindings;
+	mStageInfo = o.mStageInfo;
+	o.mMoved = true;
+}
+
 Shader::~Shader(){
+	if(mMoved) return;
 	vkDestroyShaderModule(mDevice.getDevice(), mShader, nullptr);
 }
 

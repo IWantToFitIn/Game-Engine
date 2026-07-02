@@ -39,3 +39,6 @@ target_link_libraries(rhi PRIVATE Vulkan::Vulkan)
 
 find_package(spirv-reflect)
 target_link_libraries(rhi PRIVATE spirv-reflect-static)
+
+add_subdirectory(shaders)
+target_link_libraries(rhi PRIVATE shaders)

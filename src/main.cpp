@@ -4,6 +4,9 @@
 #include<device.hpp>
 #include<context.hpp>
 #include<graphicsPipeline.hpp>
+//temporary
+#include<defaultShaderVertex.hpp>
+#include<defaultShaderFragment.hpp>
 
 int main(){
 	initLogger();
@@ -23,7 +26,8 @@ int main(){
 	});
 	Context con(dev, std::move(surf), 1080, 720);
 	std::vector<Shader> shaders{};
-	
+	shaders.emplace_back(dev, gDefaultshadervertex);
+	shaders.emplace_back(dev, gDefaultshaderfragment);
 	GraphicsPipeline(dev, shaders, con.getFormat());
 	while(win.process()){
 
