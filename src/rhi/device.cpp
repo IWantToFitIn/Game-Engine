@@ -28,15 +28,18 @@ void Device::getExtensionDependencies(std::string_view extName, std::unordered_s
 	if(extName == "VK_VERSION_1_1" || extName == "VK_VERSION_1_2" || extName == "VK_VERSION_1_3" || extName == "VK_VERSION_1_4")
 		return;
 
-	auto search = std::lower_bound(gDependencyMap.begin(), gDependencyMap.end(), extName, [](const Mapping& m, std::string_view n){
+	auto gDepBegin = Extensions::gDependencyMap.begin();
+	auto gDepEnd = Extensions::gDependencyMap.end();
+
+	auto search = std::lower_bound(gDepBegin, gDepEnd, extName, [](const Extensions::Mapping& m, std::string_view n){
 		return m.extensionName < n;
 	});
 
-	if(search == gDependencyMap.end() || search->extensionName != extName)
+	if(search == Extensions::gDependencyMap.end() || search->extensionName != extName)
 		LOG_WARN << "vulkan extension \"" << extName << "\" not found in extension dependency map";
 	else{
-		const Mapping& mapping = *search;
-		if(mapping.exType == (devOverInstance ? ExtensionType::Device : ExtensionType::Instance))
+		const Extensions::Mapping& mapping = *search;
+		if(mapping.exType == (devOverInstance ? Extensions::ExtensionType::Device : Extensions::ExtensionType::Instance))
 			result.emplace(mapping.extensionName);
 		for(const auto& path : mapping.depPaths){
 			bool valid = true;
@@ -51,6 +54,46 @@ void Device::getExtensionDependencies(std::string_view extName, std::unordered_s
 			}
 		}
 	}
+}
+
+template<typename T, Features::FeatureStructName n>
+void fillStruct(T& ret){
+	Features::fillFeatureStruct<n>(ret, [](Features::FeatureIndex i) -> VkBool32{
+		auto& features = VulkanRegistry::getFeatures();
+		if(features.contains(static_cast<size_t>(i)))
+			return VK_TRUE;
+		return VK_FALSE;
+	});
+}
+
+#define GET_ENUM_NAME(structType) Features::FeatureStructName::structType##_NAME
+
+#define FILL_FEATURE_STRUCT(structType, struct) \
+	fillStruct<structType, GET_ENUM_NAME(structType)>(struct)
+
+struct Device::FeatureChain{
+	VkPhysicalDeviceFeatures2 features2 {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+	VkPhysicalDeviceVulkan11Features features11 {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
+	VkPhysicalDeviceVulkan12Features features12 {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+	VkPhysicalDeviceVulkan13Features features13 {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+};
+
+std::unique_ptr<Device::FeatureChain> Device::getFeatures(){
+	auto ret = std::unique_ptr<Device::FeatureChain>(new Device::FeatureChain);
+
+	FILL_FEATURE_STRUCT(VkPhysicalDeviceFeatures, ret->features2.features);
+	ret->features2.pNext= mVersion >= VK_API_VERSION_1_1 ?  &ret->features11 : nullptr,
+	
+	FILL_FEATURE_STRUCT(VkPhysicalDeviceVulkan11Features, ret->features11);
+	ret->features11.pNext = mVersion >= VK_API_VERSION_1_2 ? &ret->features12 : nullptr;
+	
+	FILL_FEATURE_STRUCT(VkPhysicalDeviceVulkan12Features, ret->features12);
+	ret->features12.pNext = mVersion >= VK_API_VERSION_1_3 ? &ret->features13 : nullptr;
+	
+	FILL_FEATURE_STRUCT(VkPhysicalDeviceVulkan13Features, ret->features13);
+	ret->features13.pNext = nullptr;
+
+	return ret;
 }
 
 int Device::scoreDevice(VkPhysicalDevice dev){
@@ -107,7 +150,7 @@ void Device::createInstance(std::vector<const char*> extensions, bool enableVali
 		.applicationVersion = VK_MAKE_VERSION(0, 1, 0),
 		.pEngineName = "idk idk",
 		.engineVersion = VK_MAKE_VERSION(0, 1, 0),
-		.apiVersion = VK_API_VERSION_1_0
+		.apiVersion = mVersion
 	};
 	VkInstanceCreateInfo createInfo = {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -200,7 +243,7 @@ void Device::createDevice(VkSurfaceKHR& initialSurface){
 			});
 		else
 			LOG_WARN << "family for vulkan queue not found";
-	VkPhysicalDeviceFeatures features{};
+	auto features = getFeatures();
 
 	auto devExtensions = VulkanRegistry::getDeviceExtensions();
 	std::unordered_set<std::string_view> deps;
@@ -213,12 +256,13 @@ void Device::createDevice(VkSurfaceKHR& initialSurface){
 
 	VkDeviceCreateInfo create = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+		.pNext = &(features->features2),
 		.queueCreateInfoCount = queueInfos.size(),
 		.pQueueCreateInfos = queueInfos.data(),
 		.enabledLayerCount = 0,
 		.enabledExtensionCount = devExtensions.size(),
 		.ppEnabledExtensionNames = devExtensions.data(),
-		.pEnabledFeatures = &features
+		.pEnabledFeatures = nullptr
 	};
 	if(vkCreateDevice(mPhysDev, &create, nullptr, &mDevice) != VK_SUCCESS)
 		LOG_FATAL << "failed to create vulkan device";
@@ -255,6 +299,7 @@ Device::Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(
 	for(const auto& ext : instanceExtenstions)
 		extensions.push_back(ext.data());
 	
+	mVersion = VK_API_VERSION_1_3;
 	createInstance(extensions, validationEnabled);
 	pickPhysicalDevice();
 	auto& surf = surfaceCreator(mInstance);

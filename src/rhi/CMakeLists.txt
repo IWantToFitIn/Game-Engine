@@ -1,7 +1,7 @@
 include(FetchContent)
 find_package(Python COMPONENTS Interpreter REQUIRED)
 set(GEN_HEADER "${GEN_OUT_DIR}/VulkanDep.hpp")
-set(GEN_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/generateExtGraph.py")
+set(GEN_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/generateVulkanDep.py")
 
 FetchContent_Declare(
 	vulkan_headers

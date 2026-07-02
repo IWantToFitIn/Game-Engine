@@ -5,8 +5,11 @@
 #include<functional>
 #include<string_view>
 #include<unordered_set>
+#include<memory>
 
 class Device{
+	struct FeatureChain;
+	
 	VkInstance mInstance;
 	uint32_t mVersion;
 	std::optional<VkDebugUtilsMessengerEXT> mDebugMessenger;
@@ -19,6 +22,7 @@ class Device{
 
 	bool checkExtensionCompatibility(std::string_view);
 	void getExtensionDependencies(std::string_view, std::unordered_set<std::string_view>&, bool devOrInstance);
+	std::unique_ptr<FeatureChain> getFeatures();
 	int scoreDevice(VkPhysicalDevice);
 	void pickPhysicalDevice();
 	bool getValidationLayersSupport();
