@@ -1,6 +1,7 @@
 #include"include/graphicsPipeline.hpp"
 #include"vulkanRegistry.hpp"
 #include<log.hpp>
+#include<VulkanDep.hpp>
 
 std::vector<VkVertexInputAttributeDescription> GraphicsPipeline::parseForAttributes(std::vector<Shader>& shaders){
 	//TODO
@@ -36,8 +37,7 @@ void GraphicsPipeline::createPipelineLayout(std::vector<Shader>& shaders){
 		LOG_ERROR << "failed to create vulkan pipeline layout";
 }
 
-REGISTER_DEVICE_EXTENSION(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME)
-REGISTER_DEVICE_EXTENSION(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)
+REGISTER_DEVICE_FEATURE(static_cast<size_t>(Features::FeatureIndex::dynamicRendering));
 void GraphicsPipeline::createPipeline(std::vector<Shader>& shaders, VkFormat& swapchainFormat){
 	std::vector<VkDynamicState> dynamicStates = {
 		VK_DYNAMIC_STATE_VIEWPORT,

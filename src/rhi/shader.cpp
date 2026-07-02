@@ -52,11 +52,12 @@ Shader::Shader(Device& dev, std::vector<uint32_t> data) : mDevice(dev){
 }
 
 Shader::Shader(Shader&& o) : mDevice(o.mDevice){
-	mShader = o.mShader;
-	mEntry = o.mEntry;
-	mAttributes = o.mAttributes;
-	mBindings = o.mBindings;
-	mStageInfo = o.mStageInfo;
+	mShader = std::move(o.mShader);
+	mEntry = std::move(o.mEntry);
+	mAttributes = std::move(o.mAttributes);
+	mBindings = std::move(o.mBindings);
+	mStageInfo = std::move(o.mStageInfo);
+	mStageInfo.pName = mEntry.c_str();
 	o.mMoved = true;
 }
 
