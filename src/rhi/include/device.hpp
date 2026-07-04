@@ -9,16 +9,19 @@
 
 class Device{
 	struct FeatureChain;
-	
 	VkInstance mInstance;
 	uint32_t mVersion;
 	std::optional<VkDebugUtilsMessengerEXT> mDebugMessenger;
 	VkPhysicalDevice mPhysDev;
 	VkDevice mDevice;
 	VkQueue mPresentQueue;
+	uint32_t mPresentIndex;
 	VkQueue mGraphicsQueue;
+	uint32_t mGraphicsIndex;
 	VkQueue mComputeQueue;
+	uint32_t mComputeIndex;
 	VkQueue mTransferQueue;
+	uint32_t mTransferIndex;
 
 	bool checkExtensionCompatibility(std::string_view);
 	void getExtensionDependencies(std::string_view, std::unordered_set<std::string_view>&, bool devOrInstance);
@@ -35,4 +38,8 @@ public:
 	VkInstance getInstance() const { return mInstance; }
 	VkDevice getDevice() const { return mDevice; }
 	VkPhysicalDevice getPhysical() const { return mPhysDev; }
+	uint32_t getPresentIndex() const { return mPresentIndex; }
+	uint32_t getGraphicsIndex() const { return mGraphicsIndex; }
+	uint32_t getComputeIndex() const { return mComputeIndex; }
+	uint32_t getTransferIndex() const { return mTransferIndex; }
 };

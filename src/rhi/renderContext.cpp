@@ -1,4 +1,4 @@
-#include"include/context.hpp"
+#include"include/renderContext.hpp"
 #include"vulkanRegistry.hpp"
 #include<algorithm>
 #include<limits>
@@ -23,7 +23,7 @@ auto populateVulkanVector(F f, Args... args){
 	return members;
 }
 
-VkPresentModeKHR Context::choosePresentMode(){
+VkPresentModeKHR RenderContext::choosePresentMode(){
 	auto modes = populateVulkanVector(vkGetPhysicalDeviceSurfacePresentModesKHR, mDevice.getPhysical(), mSurface);
 	for(auto& mode : modes)
 		if(mode == VK_PRESENT_MODE_MAILBOX_KHR)
@@ -33,7 +33,7 @@ VkPresentModeKHR Context::choosePresentMode(){
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkSurfaceFormatKHR Context::chooseFormat(){
+VkSurfaceFormatKHR RenderContext::chooseFormat(){
 	auto formats = populateVulkanVector(vkGetPhysicalDeviceSurfaceFormatsKHR, mDevice.getPhysical(), mSurface);
 	for(auto& format : formats)
 		if(format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
@@ -43,7 +43,7 @@ VkSurfaceFormatKHR Context::chooseFormat(){
 	return formats[0];
 }
 
-VkExtent2D Context::chooseExtent(uint32_t width, uint32_t height){
+VkExtent2D RenderContext::chooseExtent(uint32_t width, uint32_t height){
 	VkSurfaceCapabilitiesKHR cap;
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mDevice.getPhysical(), mSurface, &cap);
 
@@ -57,7 +57,7 @@ VkExtent2D Context::chooseExtent(uint32_t width, uint32_t height){
 }
 
 REGISTER_DEVICE_EXTENSION(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
-void Context::createSwapchain(uint32_t width, uint32_t height){
+void RenderContext::createSwapchain(uint32_t width, uint32_t height){
 	VkSurfaceCapabilitiesKHR cap;
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mDevice.getPhysical(), mSurface, &cap);
 	auto format = chooseFormat();
@@ -84,7 +84,7 @@ void Context::createSwapchain(uint32_t width, uint32_t height){
 	mFormat = format.format;
 }
 
-void Context::createImages(){
+void RenderContext::createImages(){
 	mImages = populateVulkanVector(vkGetSwapchainImagesKHR, mDevice.getDevice(), mSwapchain);
 	const VkImageViewCreateInfo BaseCreate = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -117,23 +117,30 @@ void Context::createImages(){
 	}
 }
 
-Context::Context(Device& dev, VkSurfaceKHR&& surf, uint32_t width, uint32_t height) : mDevice(dev){
+RenderContext::RenderContext(Device& dev, VkSurfaceKHR&& surf, uint32_t width, uint32_t height) : mDevice(dev){
 	mSurface = surf;
 	createSwapchain(width, height);
 	createImages();
 }
 
-Context::~Context(){
+RenderContext::~RenderContext(){
 	for(auto& view : mImageViews)
 		vkDestroyImageView(mDevice.getDevice(), view, nullptr);
 	vkDestroySwapchainKHR(mDevice.getDevice(), mSwapchain, nullptr);
 	vkDestroySurfaceKHR(mDevice.getInstance(), mSurface, nullptr);
 }
 
-VkSurfaceKHR& Context::getSurface(){
+VkSurfaceKHR& RenderContext::getSurface(){
 	return mSurface;
 }
 
-VkFormat& Context::getFormat(){
+VkFormat& RenderContext::getFormat(){
 	return mFormat;
+}
+
+std::pair<VkImage, VkImageView> RenderContext::popNextImage(){
+	auto img = mImages[mCurrentIndex];
+	auto view = mImageViews[mCurrentIndex];
+	mCurrentIndex = (mCurrentIndex + 1) % mImages.size();
+	return {img, view};
 }

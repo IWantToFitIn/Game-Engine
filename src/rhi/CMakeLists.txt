@@ -22,11 +22,12 @@ add_custom_command(
 
 add_library(rhi STATIC
 	device.cpp
-	context.cpp
+	renderContext.cpp
 	surface.cpp
 	"${GEN_HEADER}"
 	shader.cpp
 	graphicsPipeline.cpp
+	CommandPool.cpp
 )
 target_include_directories(rhi
 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include

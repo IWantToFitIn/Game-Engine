@@ -2,8 +2,9 @@
 #include<log.hpp>
 #include<window.hpp>
 #include<device.hpp>
-#include<context.hpp>
+#include<renderContext.hpp>
 #include<graphicsPipeline.hpp>
+#include<commandPool.hpp>
 //temporary
 #include<defaultShaderVertex.hpp>
 #include<defaultShaderFragment.hpp>
@@ -24,11 +25,15 @@ int main(){
 		surf = createSurface(instance, win.getInternal());
 		return surf;
 	});
-	Context con(dev, std::move(surf), 1080, 720);
+	RenderContext con(dev, std::move(surf), 1080, 720);
 	std::vector<Shader> shaders{};
 	shaders.emplace_back(dev, gDefaultshadervertex);
 	shaders.emplace_back(dev, gDefaultshaderfragment);
 	GraphicsPipeline(dev, shaders, con.getFormat());
+	CommandPool gPool(dev, dev.getGraphicsIndex());
+	CommandPool pPool(dev, dev.getPresentIndex());
+
+	
 	while(win.process()){
 
 	}

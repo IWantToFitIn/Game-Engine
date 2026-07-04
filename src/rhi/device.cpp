@@ -221,13 +221,12 @@ void Device::getQueueFamilies(uint32_t& present, uint32_t& graphics, uint32_t& c
 
 void Device::createDevice(VkSurfaceKHR& initialSurface){
 	std::unordered_map<uint32_t, uint32_t> families;
-	uint32_t present, graphics, compute, transfer;
-	getQueueFamilies(present, graphics, compute, transfer, initialSurface);
+	getQueueFamilies(mPresentIndex, mGraphicsIndex, mComputeIndex, mTransferIndex, initialSurface);
 	//one queue per family, for simplicity
-	families[present] = 1;
-	families[graphics] = 1;
-	families[compute] = 1;
-	families[transfer] = 1;
+	families[mPresentIndex] = 1;
+	families[mGraphicsIndex] = 1;
+	families[mComputeIndex] = 1;
+	families[mTransferIndex] = 1;
 
 	float priorities[] = {
 		1.0f, 1.0f, 1.0f, 1.0f
@@ -269,16 +268,16 @@ void Device::createDevice(VkSurfaceKHR& initialSurface){
 
 	//one queue per family, for simplicity
 	std::unordered_map<uint32_t, VkQueue> queues;
-	queues[present] = {};
-	queues[graphics] = {};
-	queues[transfer] = {};
-	queues[compute] = {};
+	queues[mPresentIndex] = {};
+	queues[mGraphicsIndex] = {};
+	queues[mTransferIndex] = {};
+	queues[mComputeIndex] = {};
 	for(auto& [family, queue] : queues)
 		vkGetDeviceQueue(mDevice, family, 0, &queue);
-	mPresentQueue = queues[present];
-	mGraphicsQueue = queues[graphics];
-	mTransferQueue = queues[transfer];
-	mComputeQueue = queues[compute];
+	mPresentQueue = queues[mPresentIndex];
+	mGraphicsQueue = queues[mGraphicsIndex];
+	mTransferQueue = queues[mTransferIndex];
+	mComputeQueue = queues[mComputeIndex];
 }
 
 Device::Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(VkInstance&)> surfaceCreator){
