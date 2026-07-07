@@ -121,6 +121,14 @@ RenderContext::RenderContext(Device& dev, VkSurfaceKHR&& surf, uint32_t width, u
 	mSurface = surf;
 	createSwapchain(width, height);
 	createImages();
+
+	mSemaphores.resize(mImages.size());
+	VkSemaphoreCreateInfo semCreate = {
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+	};
+	for(auto& semaphore : mSemaphores)
+		if(vkCreateSemaphore(mDevice.getDevice(), &semCreate, nullptr, &semaphore) != VK_SUCCESS)
+			LOG_ERROR << "failed to create vulkan semaphore";
 }
 
 RenderContext::~RenderContext(){
@@ -128,6 +136,8 @@ RenderContext::~RenderContext(){
 		vkDestroyImageView(mDevice.getDevice(), view, nullptr);
 	vkDestroySwapchainKHR(mDevice.getDevice(), mSwapchain, nullptr);
 	vkDestroySurfaceKHR(mDevice.getInstance(), mSurface, nullptr);
+	for(auto& semaphore : mSemaphores)
+		vkDestroySemaphore(mDevice.getDevice(), semaphore, nullptr);
 }
 
 VkSurfaceKHR& RenderContext::getSurface(){
@@ -138,9 +148,13 @@ VkFormat& RenderContext::getFormat(){
 	return mFormat;
 }
 
-std::pair<VkImage, VkImageView> RenderContext::popNextImage(){
-	auto img = mImages[mCurrentIndex];
-	auto view = mImageViews[mCurrentIndex];
-	mCurrentIndex = (mCurrentIndex + 1) % mImages.size();
-	return {img, view};
+VkSwapchainKHR& RenderContext::getSwapchain(){
+	return mSwapchain;
+}
+
+std::tuple<VkImage, VkImageView, VkSemaphore, uint32_t> RenderContext::popNextImage(VkSemaphore semaphore, VkFence fence){
+	uint32_t index{0};
+	vkAcquireNextImageKHR(mDevice.getDevice(), mSwapchain, UINT64_MAX, semaphore, fence, &index);
+	
+	return {mImages[index], mImageViews[index], mSemaphores[index], index};
 }

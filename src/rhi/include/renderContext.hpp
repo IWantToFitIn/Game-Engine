@@ -2,6 +2,7 @@
 #include<device.hpp>
 #include<vulkan/vulkan.h>
 #include<vector>
+#include<tuple>
 
 class RenderContext{
 	Device& mDevice;
@@ -9,7 +10,7 @@ class RenderContext{
 	VkSwapchainKHR mSwapchain{VK_NULL_HANDLE};
 	std::vector<VkImage> mImages;
 	std::vector<VkImageView> mImageViews;
-	size_t mCurrentIndex{0};
+	std::vector<VkSemaphore> mSemaphores;
 	VkFormat mFormat;
 
 	VkPresentModeKHR choosePresentMode();
@@ -22,7 +23,8 @@ public:
 	~RenderContext();
 	VkSurfaceKHR& getSurface();
 	VkFormat& getFormat();
-	std::pair<VkImage, VkImageView> popNextImage();
+	VkSwapchainKHR& getSwapchain();
+	std::tuple<VkImage, VkImageView, VkSemaphore, uint32_t> popNextImage(VkSemaphore, VkFence f = VK_NULL_HANDLE);
 };
 
 VkSurfaceKHR createSurface(VkInstance instance, void* window);

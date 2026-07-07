@@ -28,6 +28,7 @@ add_library(rhi STATIC
 	shader.cpp
 	graphicsPipeline.cpp
 	CommandPool.cpp
+	frameContext.cpp
 )
 target_include_directories(rhi
 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
