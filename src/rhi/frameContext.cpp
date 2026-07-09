@@ -59,17 +59,17 @@ VkSemaphore FrameContext::getSemaphore(){
 }
 
 std::vector<VkCommandBuffer> FrameContext::getGraphicsBuffers(uint32_t count){
-	static thread_local CommandPoolArray<gFramesInFlight> pool(mDevice, mDevice.getGraphicsIndex());
+	static thread_local CommandPoolArray<gFramesInFlight> pool(mDevice, mDevice.getGraphics().getIndex());
 	return pool[mCurrentIndex].allocateCommands(count, true);
 }
 
 std::vector<VkCommandBuffer> FrameContext::getTransferBuffers(uint32_t count){
-	static thread_local CommandPoolArray<gFramesInFlight> pool(mDevice, mDevice.getTransferIndex());
+	static thread_local CommandPoolArray<gFramesInFlight> pool(mDevice, mDevice.getTransfer().getIndex());
 	return pool[mCurrentIndex].allocateCommands(count, false);
 }
 
 std::vector<VkCommandBuffer> FrameContext::getComputeBuffers(uint32_t count){
-	static thread_local CommandPoolArray<gFramesInFlight> pool(mDevice, mDevice.getComputeIndex());
+	static thread_local CommandPoolArray<gFramesInFlight> pool(mDevice, mDevice.getCompute().getIndex());
 	return pool[mCurrentIndex].allocateCommands(count, false);
 }
 

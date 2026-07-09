@@ -33,7 +33,8 @@ int main(){
 	GraphicsPipeline(dev, shaders, con.getFormat());
 	FrameContext frame(dev);
 	auto cmds = frame.getGraphicsBuffers(gFramesInFlight);
-	
+	auto& graphics = dev.getGraphics();
+	auto& present = dev.getPresent();
 	auto beginRecord = [&](VkImage& image) -> VkCommandBuffer&{
 		static size_t frameIndex{0};
 		frameIndex = (frameIndex + 1) % gFramesInFlight;
@@ -129,26 +130,8 @@ int main(){
 		draw(view, cmd);
 		endRecord(image, cmd);
 		VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-		VkSubmitInfo submitInfo{
-			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			.waitSemaphoreCount = 1,
-			.pWaitSemaphores = &imageSemaphore,
-			.pWaitDstStageMask = &waitStages,
-			.commandBufferCount = 1,
-			.pCommandBuffers = &cmd,
-			.signalSemaphoreCount = 1,
-			.pSignalSemaphores = &renderSemaphore
-		};
-		vkQueueSubmit(dev.mGraphicsQueue, 1, &submitInfo, fence);
+		graphics.submit(fence, {&imageSemaphore, 1}, {&renderSemaphore, 1}, waitStages, {&cmd, 1});
 		frame.increment();
-		VkPresentInfoKHR presentInfo{
-			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-			.waitSemaphoreCount = 1,
-			.pWaitSemaphores = &renderSemaphore,
-			.swapchainCount = 1,
-			.pSwapchains = &con.getSwapchain(),
-			.pImageIndices = &imageIndex
-		};
-		vkQueuePresentKHR(dev.mPresentQueue, &presentInfo);
+		present.present({&renderSemaphore, 1}, imageIndex, con.getSwapchain());
 	}
 }

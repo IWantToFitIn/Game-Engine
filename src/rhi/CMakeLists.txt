@@ -29,6 +29,7 @@ add_library(rhi STATIC
 	graphicsPipeline.cpp
 	CommandPool.cpp
 	frameContext.cpp
+	queue.cpp
 )
 target_include_directories(rhi
 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
