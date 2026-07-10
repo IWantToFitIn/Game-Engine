@@ -10,11 +10,7 @@ REGISTER_DEVICE_FEATURE(static_cast<size_t>(Features::FeatureIndex::synchronizat
 //helper struct
 template<size_t size>
 struct CommandPoolArray{
-	CommandPool mPool[size];
-
-	CommandPool& operator[](size_t i){
-		return mPool[i];
-	}
+	std::array<CommandPool, size> pool;
 
 	template<typename... Args>
 	CommandPoolArray(Args&&... args) 
@@ -22,8 +18,16 @@ struct CommandPoolArray{
 private:
 	template<size_t... Is, typename... Args>
 	CommandPoolArray(std::index_sequence<Is...>, Args&&... args)
-		: mPool{((void) Is, CommandPool(std::forward<Args>(args)...))...} {}
+		: pool{((void) Is, CommandPool(std::forward<Args>(args)...))...} {}
 };
+
+
+size_t FrameContext::getPoolIndex(std::thread::id, CommandUse use, uint32_t queueIndex){
+	std::unique_lock<std::shared_mutex> lock(mMutex);
+
+	mPools.emplace_back(std::move(CommandPoolArray<gFramesInFlight>(mDevice, use, queueIndex).pool));
+	return mPools.size() - 1;
+}
 
 FrameContext::FrameContext(Device& dev) : mDevice(dev){
 	VkFenceCreateInfo fenCreate = {
@@ -43,8 +47,11 @@ FrameContext::FrameContext(Device& dev) : mDevice(dev){
 }
 
 FrameContext::~FrameContext(){
-	for(auto& fence : mFences)
+	for(auto& fence : mFences){
+		if(vkGetFenceStatus(mDevice.getDevice(), fence) == VK_NOT_READY)
+			vkWaitForFences(mDevice.getDevice(), 1, &fence, VK_TRUE, UINT64_MAX); //dunno about the max here
 		vkDestroyFence(mDevice.getDevice(), fence, nullptr);
+	}
 	for(auto& semaphore : mSemaphores)
 		vkDestroySemaphore(mDevice.getDevice(), semaphore, nullptr);
 }
@@ -58,21 +65,35 @@ VkSemaphore FrameContext::getSemaphore(){
 	return mSemaphores[mCurrentIndex];
 }
 
-std::vector<VkCommandBuffer> FrameContext::getGraphicsBuffers(uint32_t count){
-	static thread_local CommandPoolArray<gFramesInFlight> pool(mDevice, mDevice.getGraphics().getIndex());
+std::vector<CommandList> FrameContext::getGraphicsBuffers(uint32_t count){
+	static thread_local size_t poolIndex = getPoolIndex(std::this_thread::get_id(), CommandUse::draw, mDevice.getGraphics().getIndex());
+	std::shared_lock<std::shared_mutex> lock(mMutex);
+	auto& pool = mPools[poolIndex];
 	return pool[mCurrentIndex].allocateCommands(count, true);
 }
 
-std::vector<VkCommandBuffer> FrameContext::getTransferBuffers(uint32_t count){
-	static thread_local CommandPoolArray<gFramesInFlight> pool(mDevice, mDevice.getTransfer().getIndex());
+std::vector<CommandList> FrameContext::getTransferBuffers(uint32_t count){
+	static thread_local size_t poolIndex = getPoolIndex(std::this_thread::get_id(), CommandUse::copy, mDevice.getTransfer().getIndex());
+	std::shared_lock<std::shared_mutex> lock(mMutex);
+	auto& pool = mPools[poolIndex];
 	return pool[mCurrentIndex].allocateCommands(count, false);
 }
 
-std::vector<VkCommandBuffer> FrameContext::getComputeBuffers(uint32_t count){
-	static thread_local CommandPoolArray<gFramesInFlight> pool(mDevice, mDevice.getCompute().getIndex());
+std::vector<CommandList> FrameContext::getComputeBuffers(uint32_t count){
+	static thread_local size_t poolIndex = getPoolIndex(std::this_thread::get_id(), CommandUse::compute, mDevice.getCompute().getIndex());
+	std::shared_lock<std::shared_mutex> lock(mMutex);
+	auto& pool = mPools[poolIndex];
 	return pool[mCurrentIndex].allocateCommands(count, false);
 }
 
-void FrameContext::increment(){
+void FrameContext::finishFrame(){
 	mCurrentIndex = (mCurrentIndex + 1) % gFramesInFlight;
+}
+
+void FrameContext::prepareFrame(){
+	vkWaitForFences(mDevice.getDevice(), 1, &mFences[mCurrentIndex], VK_TRUE, UINT64_MAX);
+	vkResetFences(mDevice.getDevice(), 1, &mFences[mCurrentIndex]);
+	std::unique_lock<std::shared_mutex> lock(mMutex);
+	for(auto& poolArray : mPools)
+		poolArray[mCurrentIndex].reset();
 }

@@ -32,94 +32,43 @@ int main(){
 	shaders.emplace_back(dev, gDefaultshaderfragment);
 	GraphicsPipeline(dev, shaders, con.getFormat());
 	FrameContext frame(dev);
-	auto cmds = frame.getGraphicsBuffers(gFramesInFlight);
+	std::vector<CommandList> cmds;// = frame.getGraphicsBuffers(gFramesInFlight);
+	for(int i = 0; i < gFramesInFlight; i++){
+		auto newCmds = frame.getGraphicsBuffers(1);
+		cmds.emplace_back(std::move(newCmds[0]));
+		frame.finishFrame();
+	}
+	frame.finishFrame();
+	// auto cmds = frame.getGraphicsBuffers(gFramesInFlight);
+
 	auto& graphics = dev.getGraphics();
 	auto& present = dev.getPresent();
-	auto beginRecord = [&](VkImage& image) -> VkCommandBuffer&{
+	auto beginRecord = [&](VkImage& image) -> CommandList&{
 		static size_t frameIndex{0};
 		frameIndex = (frameIndex + 1) % gFramesInFlight;
 		auto& cmd = cmds[frameIndex];
 
-		vkResetCommandBuffer(cmd, 0);
-		VkCommandBufferBeginInfo cmdBeg {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-		};
-		vkBeginCommandBuffer(cmd, &cmdBeg);
-
-		VkImageMemoryBarrier2 barrier{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-			.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.srcAccessMask = 0,
-			.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-			.image = image,
-			.subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1 }
-		};
-		VkDependencyInfo barrierDependencyInfo{
-			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-			.imageMemoryBarrierCount = 1,
-			.pImageMemoryBarriers = &barrier
-		};
-		vkCmdPipelineBarrier2(cmd, &barrierDependencyInfo);
+		cmd.begin();
+		cmd.transition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, image);
 
 		return cmd;
 	};
 
-	auto draw = [&](VkImageView& view, VkCommandBuffer& cmd){
-		VkRenderingAttachmentInfo renderAttach = {
-			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-			.imageView = view,
-			.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-			.clearValue = {
-				.color = {0.2f, 0.2f, 0.2f, 1.0f}
-			}
-		};
-		VkRenderingInfo info = {
-			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-			.renderArea = {
-				.extent = {.width = 1080, .height = 720}
-			},
-			.layerCount = 1,
-			.colorAttachmentCount = 1,
-			.pColorAttachments = &renderAttach
-		};
-		vkCmdBeginRendering(cmd, &info);
-
-		vkCmdEndRendering(cmd);
+	auto draw = [&](VkImageView& view, CommandList& cmd){
+		cmd.beginRender(view);
+		cmd.endRender();
 	};
 
-	auto endRecord = [&](VkImage& image, VkCommandBuffer& cmd){
-		VkImageMemoryBarrier2 barrier{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-			.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.dstAccessMask = 0,
-			.oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-			.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-			.image = image,
-			.subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1 }
-		};
-		VkDependencyInfo pipelineBarrier = {
-			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-			.imageMemoryBarrierCount = 1,
-			.pImageMemoryBarriers = &barrier
-		};
-		vkCmdPipelineBarrier2(cmd, &pipelineBarrier);
-
-		vkEndCommandBuffer(cmd);
+	auto endRecord = [&](VkImage& image, CommandList& cmd){
+		cmd.transition(VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, image);
+		cmd.end();
 	};
 
 	while(win.process()){
+		frame.prepareFrame();
+
 		auto fence = frame.getFence();
 		auto imageSemaphore = frame.getSemaphore();
-		vkWaitForFences(dev.getDevice(), 1, &fence, VK_TRUE, UINT64_MAX);
-		vkResetFences(dev.getDevice(), 1, &fence);
 		auto frameData = con.popNextImage(imageSemaphore);
 		auto& image = std::get<VkImage>(frameData);
 		auto& view = std::get<VkImageView>(frameData);
@@ -130,8 +79,9 @@ int main(){
 		draw(view, cmd);
 		endRecord(image, cmd);
 		VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-		graphics.submit(fence, {&imageSemaphore, 1}, {&renderSemaphore, 1}, waitStages, {&cmd, 1});
-		frame.increment();
+		graphics.submit(fence, {&imageSemaphore, 1}, {&renderSemaphore, 1}, waitStages, {&cmd.get(), 1});
 		present.present({&renderSemaphore, 1}, imageIndex, con.getSwapchain());
+
+		frame.finishFrame();
 	}
 }

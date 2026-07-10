@@ -30,6 +30,7 @@ add_library(rhi STATIC
 	CommandPool.cpp
 	frameContext.cpp
 	queue.cpp
+	commandList.cpp
 )
 target_include_directories(rhi
 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
