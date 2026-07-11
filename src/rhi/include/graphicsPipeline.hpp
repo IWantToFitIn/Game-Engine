@@ -18,4 +18,6 @@ class GraphicsPipeline{
 public:
 	GraphicsPipeline(Device&, std::vector<Shader>&, VkFormat& swapchainFormat);
 	~GraphicsPipeline();
+
+	VkPipeline get() const { return mPipeline; }
 };

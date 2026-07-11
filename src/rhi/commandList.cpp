@@ -57,6 +57,35 @@ void CommandList::beginRender(VkImageView view){
 
 }
 
+void CommandList::bindGraphicsPipeline(GraphicsPipeline& pipe){
+	vkCmdBindPipeline(mCommand, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.get());
+}
+
+void CommandList::setViewPort(uint32_t width, uint32_t height, uint32_t offsetX, uint32_t offsetY){
+	VkViewport view = {
+		.x = offsetX,
+		.y = offsetY,
+		.width = width,
+		.height = height, 
+		.minDepth = 0.0f,
+		.maxDepth = 1.0f
+	};
+	vkCmdSetViewport(mCommand, 0, 1, &view);
+}
+
+void CommandList::setScissor(uint32_t width, uint32_t height, uint32_t offsetX, uint32_t offsetY){
+	VkRect2D scissor = {
+		.offset = { .x = offsetX, .y = offsetY },
+		.extent = { .width = width, .height = height }
+	};
+	vkCmdSetScissor(mCommand, 0, 1, &scissor);
+}
+
+void CommandList::draw(uint32_t vertexCount){
+	vkCmdDraw(mCommand, vertexCount, 1, 0, 0);
+}
+
+
 void CommandList::endRender(){
 	vkCmdEndRendering(mCommand);
 }

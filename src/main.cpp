@@ -56,6 +56,10 @@ int main(){
 
 	auto draw = [&](VkImageView& view, CommandList& cmd){
 		cmd.beginRender(view);
+		cmd.bindGraphicsPipeline(pipeline);
+		cmd.setViewPort(1080, 720, 0, 0);
+		cmd.setScissor(1080, 720, 0, 0);
+		cmd.draw(3);
 		cmd.endRender();
 	};
 
