@@ -4,13 +4,6 @@
 #include<vector>
 #include<commandList.hpp>
 
-enum class CommandUse : uint32_t{
-	present = 1 << 0,
-	draw = 1 << 1,
-	compute = 1 << 2,
-	copy = 1 << 3
-};
-
 class CommandPool{
 	std::reference_wrapper<Device> mDevice;
 	VkCommandPool mPool;

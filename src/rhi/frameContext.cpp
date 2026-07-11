@@ -22,10 +22,15 @@ private:
 };
 
 
-size_t FrameContext::getPoolIndex(std::thread::id, CommandUse use, uint32_t queueIndex){
+size_t FrameContext::getPoolIndex(std::thread::id, CommandUse use){
 	std::unique_lock<std::shared_mutex> lock(mMutex);
+	auto queue = mDevice.getQueue(use);
+	if(!queue) {
+		LOG_FATAL << "failed to get the vulkan queue for command pool creation";
+		return ~0x0;
+	}
 
-	mPools.emplace_back(std::move(CommandPoolArray<gFramesInFlight>(mDevice, use, queueIndex).pool));
+	mPools.emplace_back(std::move(CommandPoolArray<gFramesInFlight>(mDevice, use, queue->get().getIndex()).pool));
 	return mPools.size() - 1;
 }
 
@@ -66,21 +71,21 @@ VkSemaphore FrameContext::getSemaphore(){
 }
 
 std::vector<CommandList> FrameContext::getGraphicsBuffers(uint32_t count){
-	static thread_local size_t poolIndex = getPoolIndex(std::this_thread::get_id(), CommandUse::draw, mDevice.getGraphics().getIndex());
+	static thread_local size_t poolIndex = getPoolIndex(std::this_thread::get_id(), CommandUse::draw);
 	std::shared_lock<std::shared_mutex> lock(mMutex);
 	auto& pool = mPools[poolIndex];
 	return pool[mCurrentIndex].allocateCommands(count, true);
 }
 
 std::vector<CommandList> FrameContext::getTransferBuffers(uint32_t count){
-	static thread_local size_t poolIndex = getPoolIndex(std::this_thread::get_id(), CommandUse::copy, mDevice.getTransfer().getIndex());
+	static thread_local size_t poolIndex = getPoolIndex(std::this_thread::get_id(), CommandUse::copy);
 	std::shared_lock<std::shared_mutex> lock(mMutex);
 	auto& pool = mPools[poolIndex];
 	return pool[mCurrentIndex].allocateCommands(count, false);
 }
 
 std::vector<CommandList> FrameContext::getComputeBuffers(uint32_t count){
-	static thread_local size_t poolIndex = getPoolIndex(std::this_thread::get_id(), CommandUse::compute, mDevice.getCompute().getIndex());
+	static thread_local size_t poolIndex = getPoolIndex(std::this_thread::get_id(), CommandUse::compute);
 	std::shared_lock<std::shared_mutex> lock(mMutex);
 	auto& pool = mPools[poolIndex];
 	return pool[mCurrentIndex].allocateCommands(count, false);

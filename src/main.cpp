@@ -30,7 +30,7 @@ int main(){
 	std::vector<Shader> shaders{};
 	shaders.emplace_back(dev, gDefaultshadervertex);
 	shaders.emplace_back(dev, gDefaultshaderfragment);
-	GraphicsPipeline(dev, shaders, con.getFormat());
+	GraphicsPipeline pipeline(dev, shaders, con.getFormat());
 	FrameContext frame(dev);
 	std::vector<CommandList> cmds;// = frame.getGraphicsBuffers(gFramesInFlight);
 	for(int i = 0; i < gFramesInFlight; i++){
@@ -41,8 +41,8 @@ int main(){
 	frame.finishFrame();
 	// auto cmds = frame.getGraphicsBuffers(gFramesInFlight);
 
-	auto& graphics = dev.getGraphics();
-	auto& present = dev.getPresent();
+	auto& graphics = dev.getQueue(CommandUse::draw)->get();
+	auto& present = dev.getQueue(CommandUse::present)->get();
 	auto beginRecord = [&](VkImage& image) -> CommandList&{
 		static size_t frameIndex{0};
 		frameIndex = (frameIndex + 1) % gFramesInFlight;

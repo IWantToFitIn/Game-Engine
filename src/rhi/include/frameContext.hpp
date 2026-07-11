@@ -19,7 +19,7 @@ class FrameContext{
 	std::shared_mutex mMutex;
 	uint32_t mCurrentIndex{0};
 
-	size_t getPoolIndex(std::thread::id, CommandUse, uint32_t queueIndex);
+	size_t getPoolIndex(std::thread::id, CommandUse);
 public:
 	FrameContext(Device&);
 	~FrameContext();

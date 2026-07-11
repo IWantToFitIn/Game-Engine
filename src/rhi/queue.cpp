@@ -1,18 +1,21 @@
 #include"include/queue.hpp"
 #include<log.hpp>
 
-Queue::Queue(VkQueue queue, uint32_t famIndex){
+Queue::Queue(VkQueue queue, uint32_t famIndex, std::bitset<32> intendedUse){
 	mQueue = queue;
 	mFamilyIndex = famIndex;
+	mIntendedUse = intendedUse;
 }
 
 Queue::Queue(Queue&& o){
 	mQueue = o.mQueue;
 	mFamilyIndex = o.mFamilyIndex;
+	mIntendedUse = o.mIntendedUse;
 }
 Queue& Queue::operator=(Queue&& o){
 	mQueue = o.mQueue;
 	mFamilyIndex = o.mFamilyIndex;
+	mIntendedUse = o.mIntendedUse;
 	return *this;
 }
 

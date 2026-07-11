@@ -7,6 +7,8 @@
 #include<unordered_set>
 #include<memory>
 #include<queue.hpp>
+#include<unordered_map>
+#include<bitset>
 
 class Device{
 	struct FeatureChain;
@@ -15,10 +17,7 @@ class Device{
 	std::optional<VkDebugUtilsMessengerEXT> mDebugMessenger;
 	VkPhysicalDevice mPhysDev;
 	VkDevice mDevice;
-	Queue mPresent;
-	Queue mGraphics;
-	Queue mCompute;
-	Queue mTransfer;
+	std::vector<Queue> mQueues;
 
 	bool checkExtensionCompatibility(std::string_view);
 	void getExtensionDependencies(std::string_view, std::unordered_set<std::string_view>&, bool devOrInstance);
@@ -27,7 +26,8 @@ class Device{
 	void pickPhysicalDevice();
 	bool getValidationLayersSupport();
 	void createInstance(std::vector<const char*> extensions, bool enableValidation);
-	void getQueueFamilies(uint32_t& present, uint32_t& graphics, uint32_t& compute, uint32_t& transfer, VkSurfaceKHR& initialSurface);
+	//returns a map of queue family indeces to commandUse bitsets
+	std::unordered_map<uint32_t, std::bitset<32>> getQueueFamilies(VkSurfaceKHR& initialSurface);
 	void createDevice(VkSurfaceKHR& initialSurface);
 public:
 	Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(VkInstance&)> surfaceCreator);
@@ -35,8 +35,5 @@ public:
 	VkInstance getInstance() const { return mInstance; }
 	VkDevice getDevice() const { return mDevice; }
 	VkPhysicalDevice getPhysical() const { return mPhysDev; }
-	const Queue& getPresent() const { return mPresent; }
-	const Queue& getGraphics() const { return mGraphics; }
-	const Queue& getCompute() const { return mCompute; }
-	const Queue& getTransfer() const { return mTransfer; }
+	std::optional<std::reference_wrapper<const Queue>> getQueue(CommandUse use) const;
 };

@@ -184,13 +184,14 @@ void Device::createInstance(std::vector<const char*> extensions, bool enableVali
 		mDebugMessenger = debugMessenger;
 }
 
-void Device::getQueueFamilies(uint32_t& present, uint32_t& graphics, uint32_t& compute, uint32_t& transfer, VkSurfaceKHR& initialSurface){
+std::unordered_map<uint32_t, std::bitset<32>> Device::getQueueFamilies(VkSurfaceKHR& initialSurface){
+	uint32_t graphics, compute, transfer, present;
 	uint32_t queueFamilyCount{};
 	vkGetPhysicalDeviceQueueFamilyProperties(mPhysDev, &queueFamilyCount, nullptr);
 	std::vector<VkQueueFamilyProperties> properties(queueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(mPhysDev, &queueFamilyCount, properties.data());
 	
-	auto findIndex = [properties](VkQueueFlagBits bit){
+	auto findIndex = [properties](VkQueueFlagBits bit) -> uint32_t{
 		int i = 0;
 		for(auto& family : properties){
 			if(family.queueFlags & bit)
@@ -199,46 +200,49 @@ void Device::getQueueFamilies(uint32_t& present, uint32_t& graphics, uint32_t& c
 		}
 		return -1;
 	};
+	auto findPresentIndex = [&](uint32_t fallbackIndex) -> uint32_t{
+		uint32_t i = 0;
+		for(auto& family : properties){
+			VkBool32 presentSupport = false;
+			vkGetPhysicalDeviceSurfaceSupportKHR(mPhysDev, i, initialSurface, &presentSupport);
+
+			if(presentSupport == VK_TRUE) return i;
+
+			i++;
+		}
+		LOG_WARN << "no vulkan queue familiy supports presentation to initial surface";
+		i = fallbackIndex;
+	};
 	graphics = findIndex(VK_QUEUE_GRAPHICS_BIT);
 	compute = findIndex(VK_QUEUE_COMPUTE_BIT);
 	transfer = findIndex(VK_QUEUE_TRANSFER_BIT);
-	
-	present = 0;
-	for(auto& family : properties){
-		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(mPhysDev, present, initialSurface, &presentSupport);
-
-		if(presentSupport == VK_TRUE) return;
-
-		present++;
-	}
-
-	LOG_WARN << "no vulkan queue familiy supports presentation to initial surface";
 	//the graphics family usually supports presentation too, so this is the best bet,
 	//it's also wise to not request a queue with an invalid index
-	present = graphics;
+	present = findPresentIndex(graphics);
+	
+	std::unordered_map<uint32_t, std::bitset<32>> ret;
+	ret[graphics] |= static_cast<uint32_t>(CommandUse::draw);
+	ret[transfer] |= static_cast<uint32_t>(CommandUse::copy);
+	ret[compute] |= static_cast<uint32_t>(CommandUse::compute);
+	ret[present] |= static_cast<uint32_t>(CommandUse::present);
+	return ret;
 }
 
 void Device::createDevice(VkSurfaceKHR& initialSurface){
-	std::unordered_map<uint32_t, uint32_t> families;
-	uint32_t presentIndex, graphicsIndex, transferIndex, computeIndex;
-	getQueueFamilies(presentIndex, graphicsIndex, computeIndex, transferIndex, initialSurface);
-	//one queue per family, for simplicity
-	families[presentIndex] = 1;
-	families[graphicsIndex] = 1;
-	families[computeIndex] = 1;
-	families[transferIndex] = 1;
+	auto families = getQueueFamilies(initialSurface);
 
+	//for sure no more than 4 queues will be created, so no problem;
 	float priorities[] = {
 		1.0f, 1.0f, 1.0f, 1.0f
 	};
 	std::vector<VkDeviceQueueCreateInfo> queueInfos = {};
-	for(auto& [family, count] : families)
+	for(auto& [family, use] : families)
 		if(family != -1)
 			queueInfos.emplace_back(VkDeviceQueueCreateInfo{
 				.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 				.queueFamilyIndex = family,
-				.queueCount = count,
+				//TODO needs a bounds check, also changes the creation logic a bit
+				.queueCount = 1, //static_cast<uint32_t>(use.count()), 
 				.pQueuePriorities = priorities
 			});
 		else
@@ -268,17 +272,12 @@ void Device::createDevice(VkSurfaceKHR& initialSurface){
 		LOG_FATAL << "failed to create vulkan device";
 
 	//one queue per family, for simplicity
-	std::unordered_map<uint32_t, VkQueue> queues;
-	queues[presentIndex] = {};
-	queues[graphicsIndex] = {};
-	queues[transferIndex] = {};
-	queues[computeIndex] = {};
-	for(auto& [family, queue] : queues)
+	for(auto& [family, use] : families){
+		VkQueue queue{};
 		vkGetDeviceQueue(mDevice, family, 0, &queue);
-	mPresent = Queue(queues[presentIndex], presentIndex);
-	mGraphics = Queue(queues[graphicsIndex], graphicsIndex);
-	mTransfer = Queue(queues[transferIndex], transferIndex);
-	mCompute = Queue(queues[computeIndex], computeIndex);
+		mQueues.emplace_back(queue, family, use);
+	}
+
 }
 
 Device::Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(VkInstance&)> surfaceCreator){
@@ -311,4 +310,11 @@ Device::~Device(){
 	if(mDebugMessenger)
 		DestroyDebugUtilsMessengerEXT(mInstance, *mDebugMessenger, nullptr);
 	vkDestroyInstance(mInstance, nullptr);
+}
+
+std::optional<std::reference_wrapper<const Queue>> Device::getQueue(CommandUse use) const{
+	for(const auto& queue : mQueues)
+		if(queue.intendedFor(use))
+			return queue;
+	return std::nullopt;
 }
