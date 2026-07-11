@@ -19,7 +19,7 @@ Queue& Queue::operator=(Queue&& o){
 	return *this;
 }
 
-void Queue::present(std::span<VkSemaphore> semaphores, uint32_t& imageIndex, VkSwapchainKHR& swapchain) const{
+VkResult Queue::present(std::span<VkSemaphore> semaphores, uint32_t& imageIndex, VkSwapchainKHR& swapchain) const{
 	std::lock_guard<std::mutex> lock(mMutex);
 	VkPresentInfoKHR info = {
 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -29,11 +29,10 @@ void Queue::present(std::span<VkSemaphore> semaphores, uint32_t& imageIndex, VkS
 		.pSwapchains = &swapchain,
 		.pImageIndices = &imageIndex
 	};
-	if(vkQueuePresentKHR(mQueue, &info) != VK_SUCCESS)
-		LOG_ERROR << "failed to present image";
+	return vkQueuePresentKHR(mQueue, &info);
 }
 
-void Queue::submit(VkFence& fence, std::span<VkSemaphore> wait, std::span<VkSemaphore> signal, VkPipelineStageFlags& stage, std::span<VkCommandBuffer> cmds) const{
+VkResult Queue::submit(VkFence& fence, std::span<VkSemaphore> wait, std::span<VkSemaphore> signal, VkPipelineStageFlags& stage, std::span<VkCommandBuffer> cmds) const{
 	std::lock_guard<std::mutex> lock(mMutex);
 	VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 	VkSubmitInfo submitInfo{
@@ -46,6 +45,5 @@ void Queue::submit(VkFence& fence, std::span<VkSemaphore> wait, std::span<VkSema
 		.signalSemaphoreCount = signal.size(),
 		.pSignalSemaphores = signal.data()
 	};
-	if(vkQueueSubmit(mQueue, 1, &submitInfo, fence) != VK_SUCCESS)
-		LOG_ERROR << "failed to submit to vulkan queue";
+	return vkQueueSubmit(mQueue, 1, &submitInfo, fence);
 }

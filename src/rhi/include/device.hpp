@@ -32,8 +32,11 @@ class Device{
 public:
 	Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(VkInstance&)> surfaceCreator);
 	~Device();
+
 	VkInstance getInstance() const { return mInstance; }
 	VkDevice getDevice() const { return mDevice; }
 	VkPhysicalDevice getPhysical() const { return mPhysDev; }
 	std::optional<std::reference_wrapper<const Queue>> getQueue(CommandUse use) const;
+
+	void waitTillIdle() const;
 };

@@ -318,3 +318,7 @@ std::optional<std::reference_wrapper<const Queue>> Device::getQueue(CommandUse u
 			return queue;
 	return std::nullopt;
 }
+
+void Device::waitTillIdle() const{
+	vkDeviceWaitIdle(mDevice);
+}

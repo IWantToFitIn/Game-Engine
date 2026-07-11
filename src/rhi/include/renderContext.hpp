@@ -2,29 +2,37 @@
 #include<device.hpp>
 #include<vulkan/vulkan.h>
 #include<vector>
-#include<tuple>
 
 class RenderContext{
 	Device& mDevice;
+	uint32_t mWidth, mHeight;
 	VkSurfaceKHR mSurface;
 	VkSwapchainKHR mSwapchain{VK_NULL_HANDLE};
 	std::vector<VkImage> mImages;
 	std::vector<VkImageView> mImageViews;
 	std::vector<VkSemaphore> mSemaphores;
 	VkFormat mFormat;
+	uint32_t mIndex{};
 
 	VkPresentModeKHR choosePresentMode();
 	VkSurfaceFormatKHR chooseFormat();
 	VkExtent2D chooseExtent(uint32_t width, uint32_t height);
-	void createSwapchain(uint32_t width, uint32_t height);
+	void createSwapchain();
 	void createImages();
+	void recreate();
 public:
 	RenderContext(Device&, VkSurfaceKHR&& surf, uint32_t width, uint32_t height);
 	~RenderContext();
 	VkSurfaceKHR& getSurface();
 	VkFormat& getFormat();
 	VkSwapchainKHR& getSwapchain();
-	std::tuple<VkImage, VkImageView, VkSemaphore, uint32_t> popNextImage(VkSemaphore, VkFence f = VK_NULL_HANDLE);
+	VkImage& getImage() ;
+	VkImageView& getView() ;
+	VkSemaphore& getSemaphore() ;
+
+	void resize(uint32_t width, uint32_t height);
+	void popNextImage(VkSemaphore, VkFence f = VK_NULL_HANDLE);
+	void present();
 };
 
 VkSurfaceKHR createSurface(VkInstance instance, void* window);

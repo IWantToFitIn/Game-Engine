@@ -39,10 +39,8 @@ int main(){
 		frame.finishFrame();
 	}
 	frame.finishFrame();
-	// auto cmds = frame.getGraphicsBuffers(gFramesInFlight);
 
 	auto& graphics = dev.getQueue(CommandUse::draw)->get();
-	auto& present = dev.getQueue(CommandUse::present)->get();
 	auto beginRecord = [&](VkImage& image) -> CommandList&{
 		static size_t frameIndex{0};
 		frameIndex = (frameIndex + 1) % gFramesInFlight;
@@ -73,19 +71,19 @@ int main(){
 
 		auto fence = frame.getFence();
 		auto imageSemaphore = frame.getSemaphore();
-		auto frameData = con.popNextImage(imageSemaphore);
-		auto& image = std::get<VkImage>(frameData);
-		auto& view = std::get<VkImageView>(frameData);
-		auto& renderSemaphore = std::get<VkSemaphore>(frameData);
-		auto imageIndex = std::get<uint32_t>(frameData);
+		con.popNextImage(imageSemaphore);
+		auto& image = con.getImage();
+		auto& view = con.getView();
+		auto& renderSemaphore = con.getSemaphore();
 
 		auto& cmd = beginRecord(image);
 		draw(view, cmd);
 		endRecord(image, cmd);
 		VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 		graphics.submit(fence, {&imageSemaphore, 1}, {&renderSemaphore, 1}, waitStages, {&cmd.get(), 1});
-		present.present({&renderSemaphore, 1}, imageIndex, con.getSwapchain());
-
+		con.present();
+		
 		frame.finishFrame();
 	}
+	dev.waitTillIdle();
 }

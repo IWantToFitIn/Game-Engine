@@ -57,7 +57,7 @@ VkExtent2D RenderContext::chooseExtent(uint32_t width, uint32_t height){
 }
 
 REGISTER_DEVICE_EXTENSION(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
-void RenderContext::createSwapchain(uint32_t width, uint32_t height){
+void RenderContext::createSwapchain(){
 	VkSurfaceCapabilitiesKHR cap;
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mDevice.getPhysical(), mSurface, &cap);
 	auto format = chooseFormat();
@@ -68,7 +68,7 @@ void RenderContext::createSwapchain(uint32_t width, uint32_t height){
 		.minImageCount = cap.maxImageCount ? std::min(cap.minImageCount + 1, cap.maxImageCount) : cap.minImageCount + 1,
 		.imageFormat = format.format,
 		.imageColorSpace = format.colorSpace,
-		.imageExtent = chooseExtent(width, height),
+		.imageExtent = chooseExtent(mWidth, mHeight),
 		.imageArrayLayers = 1,
 		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
@@ -89,7 +89,7 @@ void RenderContext::createImages(){
 	const VkImageViewCreateInfo BaseCreate = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 		.viewType = VK_IMAGE_VIEW_TYPE_2D,
-		.format = chooseFormat().format,
+		.format = mFormat,
 		.components = {
 			.r = VK_COMPONENT_SWIZZLE_IDENTITY,
 			.g = VK_COMPONENT_SWIZZLE_IDENTITY,
@@ -117,9 +117,26 @@ void RenderContext::createImages(){
 	}
 }
 
+void RenderContext::recreate(){
+	mDevice.waitTillIdle();
+
+	auto oldSwapchain = mSwapchain;
+	for(auto& view : mImageViews)
+		vkDestroyImageView(mDevice.getDevice(), view, nullptr);
+	mImageViews.clear();
+	mImages.clear();
+
+	createSwapchain();
+	createImages();
+
+	vkDestroySwapchainKHR(mDevice.getDevice(), oldSwapchain, nullptr);
+}
+
 RenderContext::RenderContext(Device& dev, VkSurfaceKHR&& surf, uint32_t width, uint32_t height) : mDevice(dev){
+	mWidth = width;
+	mHeight = height;
 	mSurface = surf;
-	createSwapchain(width, height);
+	createSwapchain();
 	createImages();
 
 	mSemaphores.resize(mImages.size());
@@ -152,9 +169,47 @@ VkSwapchainKHR& RenderContext::getSwapchain(){
 	return mSwapchain;
 }
 
-std::tuple<VkImage, VkImageView, VkSemaphore, uint32_t> RenderContext::popNextImage(VkSemaphore semaphore, VkFence fence){
-	uint32_t index{0};
-	vkAcquireNextImageKHR(mDevice.getDevice(), mSwapchain, UINT64_MAX, semaphore, fence, &index);
-	
-	return {mImages[index], mImageViews[index], mSemaphores[index], index};
+VkImage& RenderContext::getImage(){
+	return mImages[mIndex];
+}
+
+VkImageView& RenderContext::getView(){
+	return mImageViews[mIndex];
+}
+
+VkSemaphore& RenderContext::getSemaphore(){
+	return mSemaphores[mIndex];
+}
+
+void RenderContext::resize(uint32_t width, uint32_t height){
+	mWidth = width;
+	mHeight = height;
+	recreate();
+}
+
+void RenderContext::popNextImage(VkSemaphore semaphore, VkFence fence){
+	vkAcquireNextImageKHR(mDevice.getDevice(), mSwapchain, UINT64_MAX, semaphore, fence, &mIndex);
+}
+
+void RenderContext::present(){
+	static auto& queue = [&]() -> const Queue&{
+		auto queueOpt = mDevice.getQueue(CommandUse::present);
+		if(!queueOpt){
+			LOG_FATAL << "present image called, but no present capability";
+			//assert, abort or some shit here?
+		}
+		return queueOpt->get();
+	}();
+
+	switch(queue.present({&mSemaphores[mIndex], 1}, mIndex, mSwapchain)){
+	case VK_SUCCESS:
+		return;
+	case VK_SUBOPTIMAL_KHR:
+		recreate();
+		return;
+	case VK_ERROR_OUT_OF_DATE_KHR:
+		recreate();
+		break;
+	}
+	LOG_WARN << "failed to present image";
 }
