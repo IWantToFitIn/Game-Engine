@@ -1,3 +1,4 @@
+#define VMA_IMPLEMENTATION
 #include"include/device.hpp"
 #include"debugExtension.hpp"
 #include"vulkanRegistry.hpp"
@@ -281,6 +282,22 @@ void Device::createDevice(VkSurfaceKHR& initialSurface){
 
 }
 
+void Device::createAllocator(){
+	VmaVulkanFunctions vkFunctions = {
+		.vkGetInstanceProcAddr = &vkGetInstanceProcAddr,
+		.vkGetDeviceProcAddr = &vkGetDeviceProcAddr
+	};
+	VmaAllocatorCreateInfo create = {
+		.physicalDevice = mPhysDev,
+		.device = mDevice,
+		.pVulkanFunctions = &vkFunctions,
+		.instance = mInstance,
+		.vulkanApiVersion = mVersion
+	};
+	if(vmaCreateAllocator(&create, &mAllocator) != VK_SUCCESS)
+		LOG_FATAL << "failed to create vma allocator";
+}
+
 Device::Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(VkInstance&)> surfaceCreator){
 	bool validationEnabled = getValidationLayersSupport();
 	if(!validationEnabled)
@@ -304,9 +321,11 @@ Device::Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(
 	pickPhysicalDevice();
 	auto& surf = surfaceCreator(mInstance);
 	createDevice(surf);
+	createAllocator();
 }
 
 Device::~Device(){
+	vmaDestroyAllocator(mAllocator);
 	vkDestroyDevice(mDevice, nullptr);
 	if(mDebugMessenger)
 		DestroyDebugUtilsMessengerEXT(mInstance, *mDebugMessenger, nullptr);
