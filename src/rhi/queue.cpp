@@ -23,7 +23,7 @@ VkResult Queue::present(std::span<VkSemaphore> semaphores, uint32_t& imageIndex,
 	std::lock_guard<std::mutex> lock(mMutex);
 	VkPresentInfoKHR info = {
 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-		.waitSemaphoreCount = semaphores.size(),
+		.waitSemaphoreCount = static_cast<uint32_t>(semaphores.size()),
 		.pWaitSemaphores = semaphores.data(),
 		.swapchainCount = 1,
 		.pSwapchains = &swapchain,
@@ -36,12 +36,12 @@ VkResult Queue::submit(VkFence& fence, std::span<VkSemaphore> wait, std::span<Vk
 	std::lock_guard<std::mutex> lock(mMutex);
 	VkSubmitInfo submitInfo{
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.waitSemaphoreCount = wait.size(),
+		.waitSemaphoreCount = static_cast<uint32_t>(wait.size()),
 		.pWaitSemaphores = wait.data(),
 		.pWaitDstStageMask = &stage,
-		.commandBufferCount = cmds.size(),
+		.commandBufferCount = static_cast<uint32_t>(cmds.size()),
 		.pCommandBuffers = cmds.data(),
-		.signalSemaphoreCount = signal.size(),
+		.signalSemaphoreCount = static_cast<uint32_t>(signal.size()),
 		.pSignalSemaphores = signal.data()
 	};
 	return vkQueueSubmit(mQueue, 1, &submitInfo, fence);

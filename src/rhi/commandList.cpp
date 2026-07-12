@@ -62,19 +62,19 @@ void CommandList::bindGraphicsPipeline(GraphicsPipeline& pipe){
 	vkCmdBindPipeline(mCommand, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.get());
 }
 
-void CommandList::setViewPort(uint32_t width, uint32_t height, uint32_t offsetX, uint32_t offsetY){
+void CommandList::setViewPort(uint32_t width, uint32_t height, int32_t offsetX, int32_t offsetY){
 	VkViewport view = {
-		.x = offsetX,
-		.y = offsetY,
-		.width = width,
-		.height = height, 
+		.x = static_cast<float>(offsetX),
+		.y = static_cast<float>(offsetY),
+		.width = static_cast<float>(width),
+		.height = static_cast<float>(height), 
 		.minDepth = 0.0f,
 		.maxDepth = 1.0f
 	};
 	vkCmdSetViewport(mCommand, 0, 1, &view);
 }
 
-void CommandList::setScissor(uint32_t width, uint32_t height, uint32_t offsetX, uint32_t offsetY){
+void CommandList::setScissor(uint32_t width, uint32_t height, int32_t offsetX, int32_t offsetY){
 	VkRect2D scissor = {
 		.offset = { .x = offsetX, .y = offsetY },
 		.extent = { .width = width, .height = height }

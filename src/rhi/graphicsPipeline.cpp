@@ -28,9 +28,9 @@ void GraphicsPipeline::createPipelineLayout(std::vector<Shader>& shaders){
 	auto constants = parseForConstants(shaders);
 	VkPipelineLayoutCreateInfo create = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = sets.size(),
+		.setLayoutCount = static_cast<uint32_t>(sets.size()),
 		.pSetLayouts = sets.data(),
-		.pushConstantRangeCount = constants.size(),
+		.pushConstantRangeCount = static_cast<uint32_t>(constants.size()),
 		.pPushConstantRanges = constants.data()
 	};
 	if(vkCreatePipelineLayout(mDevice.getDevice(), &create, nullptr, &mLayout) != VK_SUCCESS)
@@ -52,9 +52,9 @@ void GraphicsPipeline::createPipeline(std::vector<Shader>& shaders, VkFormat& sw
 	auto attributes = parseForAttributes(shaders);
 	VkPipelineVertexInputStateCreateInfo vertexInput = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = bindings.size(),
+		.vertexBindingDescriptionCount = static_cast<uint32_t>(bindings.size()),
 		.pVertexBindingDescriptions = bindings.data(),
-		.vertexAttributeDescriptionCount = attributes.size(),
+		.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributes.size()),
 		.pVertexAttributeDescriptions = attributes.data()
 	};
 	VkPipelineInputAssemblyStateCreateInfo assembly = {
@@ -106,7 +106,7 @@ void GraphicsPipeline::createPipeline(std::vector<Shader>& shaders, VkFormat& sw
 	VkGraphicsPipelineCreateInfo create = {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.pNext = &render,
-		.stageCount = shaderStages.size(),
+		.stageCount = static_cast<uint32_t>(shaderStages.size()),
 		.pStages = shaderStages.data(),
 		.pVertexInputState = &vertexInput,
 		.pInputAssemblyState = &assembly,

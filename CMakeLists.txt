@@ -19,4 +19,10 @@ FetchContent_Declare(
 	OVERRIDE_FIND_PACKAGE
 )
 
+if(MSVC)
+    add_compile_options(/W4)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
 add_subdirectory(src)

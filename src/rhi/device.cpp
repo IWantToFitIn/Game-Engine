@@ -214,6 +214,7 @@ std::unordered_map<uint32_t, std::bitset<32>> Device::getQueueFamilies(VkSurface
 		}
 		LOG_WARN << "no vulkan queue familiy supports presentation to initial surface";
 		i = fallbackIndex;
+		return i;
 	};
 	graphics = findIndex(VK_QUEUE_GRAPHICS_BIT);
 	compute = findIndex(VK_QUEUE_COMPUTE_BIT);
@@ -239,16 +240,13 @@ void Device::createDevice(VkSurfaceKHR& initialSurface){
 	};
 	std::vector<VkDeviceQueueCreateInfo> queueInfos = {};
 	for(auto& [family, use] : families)
-		if(family != -1)
-			queueInfos.emplace_back(VkDeviceQueueCreateInfo{
-				.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-				.queueFamilyIndex = family,
-				//TODO needs a bounds check, also changes the creation logic a bit
-				.queueCount = 1, //static_cast<uint32_t>(use.count()), 
-				.pQueuePriorities = priorities
-			});
-		else
-			LOG_WARN << "family for vulkan queue not found";
+		queueInfos.emplace_back(VkDeviceQueueCreateInfo{
+			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.queueFamilyIndex = family,
+			//TODO needs a bounds check, also changes the creation logic a bit
+			.queueCount = 1, //static_cast<uint32_t>(use.count()), 
+			.pQueuePriorities = priorities
+		});
 	auto features = getFeatures();
 
 	auto devExtensions = VulkanRegistry::getDeviceExtensions();
@@ -263,10 +261,10 @@ void Device::createDevice(VkSurfaceKHR& initialSurface){
 	VkDeviceCreateInfo create = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 		.pNext = &(features->features2),
-		.queueCreateInfoCount = queueInfos.size(),
+		.queueCreateInfoCount = static_cast<uint32_t>(queueInfos.size()),
 		.pQueueCreateInfos = queueInfos.data(),
 		.enabledLayerCount = 0,
-		.enabledExtensionCount = devExtensions.size(),
+		.enabledExtensionCount = static_cast<uint32_t>(devExtensions.size()),
 		.ppEnabledExtensionNames = devExtensions.data(),
 		.pEnabledFeatures = nullptr
 	};

@@ -23,6 +23,7 @@ CommandPool& CommandPool::operator=(CommandPool&& o){
 	mPool = o.mPool;
 	mPurpose = o.mPurpose;
 	o.mMoved = true;
+	return *this;
 }
 
 CommandPool::~CommandPool(){
@@ -36,7 +37,7 @@ std::vector<CommandList> CommandPool::allocateCommands(uint32_t count, bool prim
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		.commandPool = mPool,
 		.level = primary ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY,
-		.commandBufferCount = bufs.size()
+		.commandBufferCount = static_cast<uint32_t>(bufs.size())
 	};
 	if(vkAllocateCommandBuffers(mDevice.get().getDevice(), &alloc, bufs.data()) != VK_SUCCESS){
 		LOG_ERROR << "failed to allocate command buffers";
@@ -56,5 +57,5 @@ CommandList CommandPool::allocateCommand(bool primary){
 }
 
 void CommandPool::reset(){
-	vkResetCommandPool(mDevice.get().getDevice(), mPool, NULL);
+	vkResetCommandPool(mDevice.get().getDevice(), mPool, 0);
 }
