@@ -10,6 +10,8 @@
 #include<unordered_map>
 #include<bitset>
 
+class CommandList;
+
 class Device{
 	struct FeatureChain;
 	VkInstance mInstance;
@@ -39,4 +41,5 @@ public:
 	std::optional<std::reference_wrapper<const Queue>> getQueue(CommandUse use) const;
 
 	void waitTillIdle() const;
+	void submit(CommandList&, VkFence, std::span<VkSemaphore> wait, std::span<VkSemaphore> signal, VkPipelineStageFlags);
 };

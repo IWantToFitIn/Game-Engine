@@ -7,6 +7,7 @@
 class CommandPool{
 	std::reference_wrapper<Device> mDevice;
 	VkCommandPool mPool;
+	CommandUse mPurpose;
 	bool mMoved{false};
 public:
 	CommandPool(Device&, CommandUse, uint32_t queueIndex);

@@ -34,12 +34,11 @@ VkResult Queue::present(std::span<VkSemaphore> semaphores, uint32_t& imageIndex,
 
 VkResult Queue::submit(VkFence& fence, std::span<VkSemaphore> wait, std::span<VkSemaphore> signal, VkPipelineStageFlags& stage, std::span<VkCommandBuffer> cmds) const{
 	std::lock_guard<std::mutex> lock(mMutex);
-	VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 	VkSubmitInfo submitInfo{
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		.waitSemaphoreCount = wait.size(),
 		.pWaitSemaphores = wait.data(),
-		.pWaitDstStageMask = &waitStages,
+		.pWaitDstStageMask = &stage,
 		.commandBufferCount = cmds.size(),
 		.pCommandBuffers = cmds.data(),
 		.signalSemaphoreCount = signal.size(),

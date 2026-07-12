@@ -8,6 +8,7 @@
 #include<unordered_map>
 #include<VulkanDep.hpp>
 #include<algorithm>
+#include"include/commandList.hpp"
 
 constexpr auto gValidationLayers = {
 	"VK_LAYER_KHRONOS_validation"
@@ -321,4 +322,14 @@ std::optional<std::reference_wrapper<const Queue>> Device::getQueue(CommandUse u
 
 void Device::waitTillIdle() const{
 	vkDeviceWaitIdle(mDevice);
+}
+
+void Device::submit(CommandList& cmd, VkFence fence, std::span<VkSemaphore> wait, std::span<VkSemaphore> signal, VkPipelineStageFlags stage){
+	auto queueOpt = getQueue(cmd.getPurpose());
+	if(!queueOpt){
+		LOG_WARN << "commandList submited but device can't execute it";
+		return;
+	}
+	auto& queue = queueOpt->get();
+	queue.submit(fence, wait, signal, stage, { &cmd.get(), 1});
 }

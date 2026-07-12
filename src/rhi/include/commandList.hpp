@@ -5,9 +5,10 @@
 
 class CommandList{
 	VkCommandBuffer mCommand;
+	CommandUse mPurpose;
 
 public:
-	CommandList(VkCommandBuffer);
+	CommandList(VkCommandBuffer, CommandUse);
 	CommandList(CommandList&) = delete;
 	CommandList& operator=(CommandList&) = delete;
 	CommandList(CommandList&&) = default;
@@ -25,4 +26,5 @@ public:
 	void end();
 
 	VkCommandBuffer& get() { return mCommand; }
+	const CommandUse& getPurpose() const { return mPurpose; }
 };

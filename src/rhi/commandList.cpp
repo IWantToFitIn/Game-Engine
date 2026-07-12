@@ -1,8 +1,9 @@
 #include"include/commandList.hpp"
 
 
-CommandList::CommandList(VkCommandBuffer cmd){
+CommandList::CommandList(VkCommandBuffer cmd, CommandUse purpose){
 	mCommand = cmd;
+	mPurpose = purpose;
 }
 
 void CommandList::begin(){
