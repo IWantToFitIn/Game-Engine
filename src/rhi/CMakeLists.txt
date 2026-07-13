@@ -31,6 +31,7 @@ add_library(rhi STATIC
 	frameContext.cpp
 	queue.cpp
 	commandList.cpp
+	buffer.cpp
 )
 target_include_directories(rhi
 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include

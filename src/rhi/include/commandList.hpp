@@ -2,6 +2,7 @@
 #include<vulkan/vulkan.h>
 #include<device.hpp>
 #include<graphicsPipeline.hpp>
+#include<buffer.hpp>
 
 class CommandList{
 	VkCommandBuffer mCommand;
@@ -23,6 +24,8 @@ public:
 	void setScissor(uint32_t width, uint32_t heght, int32_t offsetX, int32_t offsetY);
 	void draw(uint32_t vertexCount);
 	void endRender();
+	void bindVertexBuffer(Buffer&);
+	void copyBuffer(Buffer& src, Buffer& dst, uint32_t size, uint32_t dstOffset);
 	void end();
 
 	VkCommandBuffer& get() { return mCommand; }

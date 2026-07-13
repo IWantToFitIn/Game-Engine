@@ -91,6 +91,21 @@ void CommandList::endRender(){
 	vkCmdEndRendering(mCommand);
 }
 
+void CommandList::bindVertexBuffer(Buffer& buf){
+	auto vkBuf = buf.getBuffer();
+	VkDeviceSize offsets{};
+	vkCmdBindVertexBuffers(mCommand, 0, 1, &vkBuf, &offsets);
+}
+
+void CommandList::copyBuffer(Buffer& src, Buffer& dst, uint32_t size, uint32_t dstOffset){
+	VkBufferCopy region = {
+		.srcOffset = 0,
+		.dstOffset = dstOffset,
+		.size = size
+	};
+	vkCmdCopyBuffer(mCommand, src.getBuffer(), dst.getBuffer(), 1, &region);
+}
+
 void CommandList::end(){
 	vkEndCommandBuffer(mCommand);
 }

@@ -6,9 +6,15 @@
 #include<graphicsPipeline.hpp>
 #include<commandPool.hpp>
 #include<frameContext.hpp>
+#include<buffer.hpp>
 //temporary
 #include<defaultShaderVertex.hpp>
 #include<defaultShaderFragment.hpp>
+
+struct Vertex {
+	float pos[2];
+	float color[3];
+};
 
 int main(){
 	initLogger();
@@ -40,6 +46,21 @@ int main(){
 	}
 	frame.finishFrame();
 
+	const std::vector<Vertex> vertices = {
+		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+		// {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+	};
+	Buffer vbo(dev, vertices.size() * sizeof(Vertex), BufferUsage::Vertex);
+	Buffer trans(dev, vertices.size() * sizeof(Vertex), BufferUsage::Transfer);
+	trans.copyMemory({(unsigned char*)vertices.data(), vertices.size() * sizeof(Vertex)});
+	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
+	transCmd.begin();
+	transCmd.copyBuffer(trans, vbo, vertices.size() * sizeof(Vertex), 0);
+	transCmd.end();
+	dev.submit(transCmd, 0, {}, {}, 0);
+
 	auto beginRecord = [&](VkImage& image) -> CommandList&{
 		static size_t frameIndex{0};
 		frameIndex = (frameIndex + 1) % gFramesInFlight;
@@ -56,6 +77,7 @@ int main(){
 		cmd.bindGraphicsPipeline(pipeline);
 		cmd.setViewPort(1080, 720, 0, 0);
 		cmd.setScissor(1080, 720, 0, 0);
+		cmd.bindVertexBuffer(vbo);
 		cmd.draw(3);
 		cmd.endRender();
 	};

@@ -81,7 +81,7 @@ std::vector<CommandList> FrameContext::getTransferBuffers(uint32_t count){
 	static thread_local size_t poolIndex = getPoolIndex(std::this_thread::get_id(), CommandUse::copy);
 	std::shared_lock<std::shared_mutex> lock(mMutex);
 	auto& pool = mPools[poolIndex];
-	return pool[mCurrentIndex].allocateCommands(count, false);
+	return pool[mCurrentIndex].allocateCommands(count, true);
 }
 
 std::vector<CommandList> FrameContext::getComputeBuffers(uint32_t count){
