@@ -23,8 +23,10 @@ public:
 	void setViewPort(uint32_t width, uint32_t height, int32_t offsetX, int32_t offsetY);
 	void setScissor(uint32_t width, uint32_t heght, int32_t offsetX, int32_t offsetY);
 	void draw(uint32_t vertexCount);
+	void drawIndexed(uint32_t indexCount);
 	void endRender();
 	void bindVertexBuffer(Buffer&);
+	void bindIndexBuffer(Buffer&);
 	void copyBuffer(Buffer& src, Buffer& dst, uint32_t size, uint32_t dstOffset);
 	void end();
 

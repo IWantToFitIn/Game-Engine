@@ -7,6 +7,8 @@ VkBufferUsageFlags Buffer::getUsage(BufferUsage use){
 		return VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	case BufferUsage::Transfer:
 		return VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+	case BufferUsage::Index:
+		return VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	}
 	LOG_WARN << "couldn't determine the buffer usage";
 	return 0;
@@ -18,6 +20,8 @@ VmaAllocationCreateFlags Buffer::getFlags(BufferUsage use){
 		return 0;
 	case BufferUsage::Transfer:
 		return VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+	case BufferUsage::Index:
+		return 0;
 	}
 	LOG_WARN << "couldn't determine the buffer usage";
 	return 0;

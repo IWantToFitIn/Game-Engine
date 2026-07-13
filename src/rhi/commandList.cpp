@@ -86,6 +86,9 @@ void CommandList::draw(uint32_t vertexCount){
 	vkCmdDraw(mCommand, vertexCount, 1, 0, 0);
 }
 
+void CommandList::drawIndexed(uint32_t indexCount){
+	vkCmdDrawIndexed(mCommand, indexCount, 1, 0, 0, 0);
+}
 
 void CommandList::endRender(){
 	vkCmdEndRendering(mCommand);
@@ -95,6 +98,10 @@ void CommandList::bindVertexBuffer(Buffer& buf){
 	auto vkBuf = buf.getBuffer();
 	VkDeviceSize offsets{};
 	vkCmdBindVertexBuffers(mCommand, 0, 1, &vkBuf, &offsets);
+}
+
+void CommandList::bindIndexBuffer(Buffer& buf){
+	vkCmdBindIndexBuffer(mCommand, buf.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 }
 
 void CommandList::copyBuffer(Buffer& src, Buffer& dst, uint32_t size, uint32_t dstOffset){

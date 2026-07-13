@@ -16,6 +16,26 @@ struct Vertex {
 	float color[3];
 };
 
+void transfer(Device& dev, FrameContext& frame, std::span<unsigned char> data, Buffer& dst){
+	Buffer trans(dev, data.size(), BufferUsage::Transfer);
+	trans.copyMemory(data);
+	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
+	transCmd.begin();
+	transCmd.copyBuffer(trans, dst, data.size(), 0);
+	transCmd.end();
+	VkFence fence = [&](){
+		VkFence fence;
+		VkFenceCreateInfo fenceInfo ={
+			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
+		};
+		vkCreateFence(dev.getDevice(), &fenceInfo, nullptr, &fence);
+		return fence;
+	}();
+	dev.submit(transCmd, fence, {}, {}, 0);
+	vkWaitForFences(dev.getDevice(), 1, &fence, VK_TRUE, UINT64_MAX);
+	vkDestroyFence(dev.getDevice(), fence, nullptr);
+}
+
 int main(){
 	initLogger();
 	setFilter(LogSeverity::debug);
@@ -50,16 +70,15 @@ int main(){
 		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
 		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
 		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-		// {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
 	};
 	Buffer vbo(dev, vertices.size() * sizeof(Vertex), BufferUsage::Vertex);
-	Buffer trans(dev, vertices.size() * sizeof(Vertex), BufferUsage::Transfer);
-	trans.copyMemory({(unsigned char*)vertices.data(), vertices.size() * sizeof(Vertex)});
-	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
-	transCmd.begin();
-	transCmd.copyBuffer(trans, vbo, vertices.size() * sizeof(Vertex), 0);
-	transCmd.end();
-	dev.submit(transCmd, 0, {}, {}, 0);
+	transfer(dev, frame, {(unsigned char*)vertices.data(), vertices.size() * sizeof(Vertex)}, vbo);
+	const std::vector<uint32_t> indices = {
+		0, 1, 2, 2, 3, 0
+	};
+	Buffer ibo(dev, indices.size() * sizeof(uint32_t), BufferUsage::Index);
+	transfer(dev, frame, {(unsigned char*)indices.data(), indices.size() * sizeof(uint32_t)}, ibo);
 
 	auto beginRecord = [&](VkImage& image) -> CommandList&{
 		static size_t frameIndex{0};
@@ -78,7 +97,8 @@ int main(){
 		cmd.setViewPort(1080, 720, 0, 0);
 		cmd.setScissor(1080, 720, 0, 0);
 		cmd.bindVertexBuffer(vbo);
-		cmd.draw(3);
+		cmd.bindIndexBuffer(ibo);
+		cmd.drawIndexed(indices.size());
 		cmd.endRender();
 	};
 

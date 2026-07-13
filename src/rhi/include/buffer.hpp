@@ -5,6 +5,7 @@
 
 enum class BufferUsage{
 	Vertex,
+	Index,
 	Transfer
 };
 
