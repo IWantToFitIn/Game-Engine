@@ -9,8 +9,8 @@ class Shader{
 	bool mMoved{false};
 	VkShaderModule mShader;
 	std::string mEntry;
-	std::vector<VkVertexInputBindingDescription> mAttributes;
-	std::vector<VkVertexInputAttributeDescription> mBindings;
+	std::vector<VkVertexInputBindingDescription>  mBindings;
+	std::vector<VkVertexInputAttributeDescription> mAttributes;
 	VkPipelineShaderStageCreateInfo mStageInfo;
 
 	void reflectShader(std::vector<uint32_t>);

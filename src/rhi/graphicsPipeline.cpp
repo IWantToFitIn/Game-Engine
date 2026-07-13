@@ -4,13 +4,27 @@
 #include<VulkanDep.hpp>
 
 std::vector<VkVertexInputAttributeDescription> GraphicsPipeline::parseForAttributes(std::vector<Shader>& shaders){
-	//TODO
-	return {};
+	//use a set first and then convert it to a vector?
+	std::vector<VkVertexInputAttributeDescription> attributes;
+	for(auto& shader : shaders){
+		//change this
+		if(shader.getStageInfo().stage != VK_SHADER_STAGE_VERTEX_BIT) continue;
+		const auto& shaderAttributes = shader.getAttributes();
+		attributes.insert(attributes.end(), shaderAttributes.begin(), shaderAttributes.end());
+	}
+	return attributes;
 }
 
-std::vector<VkVertexInputBindingDescription> GraphicsPipeline::parseForBindings(std::vector<Shader>&){
-	//TODO
-	return {};
+std::vector<VkVertexInputBindingDescription> GraphicsPipeline::parseForBindings(std::vector<Shader>& shaders){
+	//use a set first and then convert it to a vector?
+	std::vector<VkVertexInputBindingDescription> bindings;
+	for(auto& shader : shaders){
+		//change this
+		if(shader.getStageInfo().stage != VK_SHADER_STAGE_VERTEX_BIT) continue;
+		const auto& shaderBindings = shader.getBindings();
+		bindings.insert(bindings.end(), shaderBindings.begin(), shaderBindings.end());
+	}
+	return bindings;
 }
 
 std::vector<VkPushConstantRange> GraphicsPipeline::parseForConstants(std::vector<Shader>&){
