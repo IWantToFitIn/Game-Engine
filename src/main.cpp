@@ -98,6 +98,8 @@ int main(){
 		cmd.setScissor(1080, 720, 0, 0);
 		cmd.bindVertexBuffer(vbo);
 		cmd.bindIndexBuffer(ibo);
+		float offset[] = { 0.5f, 0.0f };
+		cmd.pushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, {reinterpret_cast<std::byte*>(offset), sizeof(offset)});
 		cmd.drawIndexed(indices.size());
 		cmd.endRender();
 	};

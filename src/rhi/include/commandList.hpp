@@ -7,7 +7,7 @@
 class CommandList{
 	VkCommandBuffer mCommand;
 	CommandUse mPurpose;
-
+	VkPipelineLayout mCurrentLayout{};
 public:
 	CommandList(VkCommandBuffer, CommandUse);
 	CommandList(CommandList&) = delete;
@@ -28,6 +28,7 @@ public:
 	void bindVertexBuffer(Buffer&);
 	void bindIndexBuffer(Buffer&);
 	void copyBuffer(Buffer& src, Buffer& dst, uint32_t size, uint32_t dstOffset);
+	void pushConstant(VkShaderStageFlags stage, uint32_t offset, std::span<std::byte> data);
 	void end();
 
 	VkCommandBuffer& get() { return mCommand; }

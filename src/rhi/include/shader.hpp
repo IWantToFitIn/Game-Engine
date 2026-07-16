@@ -4,6 +4,9 @@
 #include<string>
 #include<device.hpp>
 
+//dont wanna include here spirv reflect, because i had some issues with it before
+struct SpvReflectShaderModule;
+
 class Shader{
 	Device& mDevice;
 	bool mMoved{false};
@@ -11,8 +14,12 @@ class Shader{
 	std::string mEntry;
 	std::vector<VkVertexInputBindingDescription>  mBindings;
 	std::vector<VkVertexInputAttributeDescription> mAttributes;
+	std::vector<VkPushConstantRange> mConstants;
+	std::vector<VkDescriptorSetLayout> mDescriptors;
 	VkPipelineShaderStageCreateInfo mStageInfo;
 
+	void reflectInputVariables(SpvReflectShaderModule& shaderReflect);
+	void reflectUniforms(SpvReflectShaderModule& shaderReflect);
 	void reflectShader(std::vector<uint32_t>);
 public:
 	Shader(Device&, std::vector<uint32_t>);
@@ -22,6 +29,8 @@ public:
 	Shader& operator=(Shader&&) = delete;
 	~Shader();
 	VkPipelineShaderStageCreateInfo getStageInfo();
-	std::vector<VkVertexInputAttributeDescription> getAttributes();
-	std::vector<VkVertexInputBindingDescription> getBindings();
+	const std::vector<VkVertexInputAttributeDescription>& getAttributes() const;
+	const std::vector<VkVertexInputBindingDescription>& getBindings() const;
+	const std::vector<VkPushConstantRange>& getConstants() const;
+	const std::vector<VkDescriptorSetLayout>& getDescriptors() const;
 };

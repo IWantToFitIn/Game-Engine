@@ -59,6 +59,7 @@ void CommandList::beginRender(VkImageView view){
 }
 
 void CommandList::bindGraphicsPipeline(GraphicsPipeline& pipe){
+	mCurrentLayout = pipe.getLayout();
 	vkCmdBindPipeline(mCommand, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.get());
 }
 
@@ -113,6 +114,11 @@ void CommandList::copyBuffer(Buffer& src, Buffer& dst, uint32_t size, uint32_t d
 	vkCmdCopyBuffer(mCommand, src.getBuffer(), dst.getBuffer(), 1, &region);
 }
 
+void CommandList::pushConstant(VkShaderStageFlags stage, uint32_t offset, std::span<std::byte> data){
+	vkCmdPushConstants(mCommand, mCurrentLayout, stage, offset, data.size(), data.data());
+}
+
 void CommandList::end(){
 	vkEndCommandBuffer(mCommand);
+	mCurrentLayout = 0;
 }

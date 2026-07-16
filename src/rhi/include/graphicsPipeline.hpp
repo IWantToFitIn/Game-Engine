@@ -20,4 +20,5 @@ public:
 	~GraphicsPipeline();
 
 	VkPipeline get() const { return mPipeline; }
+	VkPipelineLayout getLayout() const { return mLayout; }
 };

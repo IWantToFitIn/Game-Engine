@@ -27,14 +27,22 @@ std::vector<VkVertexInputBindingDescription> GraphicsPipeline::parseForBindings(
 	return bindings;
 }
 
-std::vector<VkPushConstantRange> GraphicsPipeline::parseForConstants(std::vector<Shader>&){
-	//TODO
-	return {};
+std::vector<VkPushConstantRange> GraphicsPipeline::parseForConstants(std::vector<Shader>& shaders){
+	std::vector<VkPushConstantRange> constants;
+	for(auto& shader : shaders){
+		const auto& shaderConstants = shader.getConstants();
+		constants.insert(constants.end(), shaderConstants.begin(), shaderConstants.end());
+	}
+	return constants;
 }
 
-std::vector<VkDescriptorSetLayout> GraphicsPipeline::parseForSetLayouts(std::vector<Shader>&){
-	//TODO
-	return {};
+std::vector<VkDescriptorSetLayout> GraphicsPipeline::parseForSetLayouts(std::vector<Shader>& shaders){
+	std::vector<VkDescriptorSetLayout> descriptors;
+	for(auto& shader : shaders){
+		const auto& shaderDescriptors = shader.getDescriptors();
+		descriptors.insert(descriptors.end(), shaderDescriptors.begin(), shaderDescriptors.end());
+	}
+	return descriptors;
 }
 
 void GraphicsPipeline::createPipelineLayout(std::vector<Shader>& shaders){

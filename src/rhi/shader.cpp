@@ -260,6 +260,45 @@ uint32_t formatSize(VkFormat f){
 	return 0;
 }
 
+void Shader::reflectInputVariables(SpvReflectShaderModule& shaderReflect){
+	std::vector<SpvReflectInterfaceVariable*> inputVariables;
+	for(auto& input : std::span{shaderReflect.input_variables, shaderReflect.input_variable_count})
+		if(input->decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN)
+			continue;
+		else
+			inputVariables.push_back(input);
+	std::sort(inputVariables.begin(), inputVariables.end(), [](const auto* varA, const auto* varB){
+		return varA->location < varB->location;
+	});
+	//temporary
+	VkVertexInputBindingDescription binding = {
+		.binding = 0,
+		.stride = 0, // to be calculated later
+		.inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+	};
+	mAttributes.reserve(inputVariables.size());
+	for(auto& input : inputVariables){
+		VkVertexInputAttributeDescription desc = {
+			.location = input->location,
+			.binding = binding.binding,
+			.format = static_cast<VkFormat>(input->format),
+			.offset = binding.stride
+		};
+		binding.stride += formatSize(desc.format);
+		mAttributes.push_back(desc);
+	}
+	mBindings.push_back(binding);
+}
+
+void Shader::reflectUniforms(SpvReflectShaderModule& shaderReflect){
+	for(auto& constant : std::span{shaderReflect.push_constant_blocks, shaderReflect.push_constant_block_count})
+		mConstants.push_back(VkPushConstantRange{
+			.stageFlags = static_cast<VkShaderStageFlags>(mStageInfo.stage),
+			.offset = constant.offset,
+			.size = constant.size
+		});
+}
+
 void Shader::reflectShader(std::vector<uint32_t> data){
 	SpvReflectShaderModule shaderReflect;
 	if(spvReflectCreateShaderModule(data.size() * sizeof(uint32_t), data.data(), &shaderReflect) != SPV_REFLECT_RESULT_SUCCESS)
@@ -293,34 +332,9 @@ void Shader::reflectShader(std::vector<uint32_t> data){
 		.pName = mEntry.c_str()
 		//TODO specialization info
 	};
-	
-	std::vector<SpvReflectInterfaceVariable*> inputVariables;
-	for(auto& input : std::span{shaderReflect.input_variables, shaderReflect.input_variable_count})
-		if(input->decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN)
-			continue;
-		else
-			inputVariables.push_back(input);
-	std::sort(inputVariables.begin(), inputVariables.end(), [](const auto* varA, const auto* varB){
-		return varA->location < varB->location;
-	});
-	//temporary
-	VkVertexInputBindingDescription binding = {
-		.binding = 0,
-		.stride = 0, // to be calculated later
-		.inputRate = VK_VERTEX_INPUT_RATE_VERTEX
-	};
-	mAttributes.reserve(inputVariables.size());
-	for(auto& input : inputVariables){
-		VkVertexInputAttributeDescription desc = {
-			.location = input->location,
-			.binding = binding.binding,
-			.format = static_cast<VkFormat>(input->format),
-			.offset = binding.stride
-		};
-		binding.stride += formatSize(desc.format);
-		mAttributes.push_back(desc);
-	}
-	mBindings.push_back(binding);
+
+	reflectInputVariables(shaderReflect);
+	reflectUniforms(shaderReflect);
 
 	spvReflectDestroyShaderModule(&shaderReflect);
 }
@@ -342,6 +356,8 @@ Shader::Shader(Shader&& o) : mDevice(o.mDevice){
 	mEntry = std::move(o.mEntry);
 	mAttributes = std::move(o.mAttributes);
 	mBindings = std::move(o.mBindings);
+	mConstants = std::move(o.mConstants);
+	mDescriptors = std::move(o.mDescriptors);
 	mStageInfo = std::move(o.mStageInfo);
 	mStageInfo.pName = mEntry.c_str();
 	o.mMoved = true;
@@ -356,10 +372,18 @@ VkPipelineShaderStageCreateInfo Shader::getStageInfo(){
 	return mStageInfo;
 }
 
-std::vector<VkVertexInputAttributeDescription> Shader::getAttributes(){
+const std::vector<VkVertexInputAttributeDescription>& Shader::getAttributes() const{
 	return mAttributes;
 }
 
-std::vector<VkVertexInputBindingDescription> Shader::getBindings(){
+const std::vector<VkVertexInputBindingDescription>& Shader::getBindings() const{
 	return mBindings;
+}
+
+const std::vector<VkPushConstantRange>& Shader::getConstants() const{
+	return mConstants;
+}
+
+const std::vector<VkDescriptorSetLayout>& Shader::getDescriptors() const{
+	return mDescriptors;
 }
