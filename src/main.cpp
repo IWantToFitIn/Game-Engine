@@ -17,7 +17,7 @@ struct Vertex {
 };
 
 void transfer(Device& dev, FrameContext& frame, std::span<unsigned char> data, Buffer& dst){
-	Buffer trans(dev, data.size(), BufferUsage::Transfer);
+	Buffer trans(dev, data.size(), BufferUsage::Transfer, BufferAccess::HostMutable);
 	trans.copyMemory(data);
 	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
 	transCmd.begin();
@@ -72,12 +72,12 @@ int main(){
 		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
 		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
 	};
-	Buffer vbo(dev, vertices.size() * sizeof(Vertex), BufferUsage::Vertex);
+	Buffer vbo(dev, vertices.size() * sizeof(Vertex), BufferUsage::Vertex, BufferAccess::Immutable);
 	transfer(dev, frame, {(unsigned char*)vertices.data(), vertices.size() * sizeof(Vertex)}, vbo);
 	const std::vector<uint32_t> indices = {
 		0, 1, 2, 2, 3, 0
 	};
-	Buffer ibo(dev, indices.size() * sizeof(uint32_t), BufferUsage::Index);
+	Buffer ibo(dev, indices.size() * sizeof(uint32_t), BufferUsage::Index, BufferAccess::Immutable);
 	transfer(dev, frame, {(unsigned char*)indices.data(), indices.size() * sizeof(uint32_t)}, ibo);
 
 	auto beginRecord = [&](VkImage& image) -> CommandList&{

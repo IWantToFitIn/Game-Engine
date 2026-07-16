@@ -6,7 +6,17 @@
 enum class BufferUsage{
 	Vertex,
 	Index,
-	Transfer
+	Transfer,
+	Constant,
+	Storage,
+	Indirect
+};
+
+enum class BufferAccess{
+	Immutable,
+	HostMutable,
+	DeviceMutable,
+	Readback
 };
 
 class Buffer{
@@ -14,12 +24,13 @@ class Buffer{
 	VkBuffer mBuffer;
 	VmaAllocation mAllocation;
 	BufferUsage mUsage;
+	BufferAccess mAccess;
 	bool mMoved{false};
 
-	VkBufferUsageFlags getUsage(BufferUsage);
-	VmaAllocationCreateFlags getFlags(BufferUsage);
+	VkBufferUsageFlags getUsage(BufferUsage use, BufferAccess access);
+	VmaAllocationCreateFlags getFlags(BufferAccess access);
 public:
-	Buffer(Device&, uint32_t size, BufferUsage);
+	Buffer(Device&, uint32_t size, BufferUsage, BufferAccess);
 	Buffer(Buffer&) = delete;
 	Buffer& operator=(Buffer&) = delete;
 	Buffer(Buffer&&);
