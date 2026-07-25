@@ -1,8 +1,9 @@
 #pragma once
 #include<vulkan/vulkan.h>
 #include<shader.hpp>
-#include<device.hpp>
 #include<vector>
+
+class Device;
 
 class GraphicsPipeline{
 	Device& mDevice;
@@ -13,10 +14,10 @@ class GraphicsPipeline{
 	std::vector<VkVertexInputBindingDescription> parseForBindings(std::vector<Shader>&);
 	std::vector<VkPushConstantRange> parseForConstants(std::vector<Shader>&);
 	std::vector<VkDescriptorSetLayout> parseForSetLayouts(std::vector<Shader>&);
-	void createPipelineLayout(std::vector<Shader>&);
+	void createPipelineLayout(std::vector<Shader>&, bool bindless);
 	void createPipeline(std::vector<Shader>&, VkFormat&);
 public:
-	GraphicsPipeline(Device&, std::vector<Shader>&, VkFormat& swapchainFormat);
+	GraphicsPipeline(Device&, std::vector<Shader>&, VkFormat& swapchainFormat, bool bindless = true);
 	~GraphicsPipeline();
 
 	VkPipeline get() const { return mPipeline; }

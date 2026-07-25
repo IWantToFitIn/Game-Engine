@@ -36,6 +36,13 @@ void transfer(Device& dev, FrameContext& frame, std::span<unsigned char> data, B
 	vkDestroyFence(dev.getDevice(), fence, nullptr);
 }
 
+struct alignas(16) UBO{
+	float offset[4];
+	float padding1[4];
+	float padding2[4];
+	float padding3[4];
+};
+
 int main(){
 	initLogger();
 	setFilter(LogSeverity::debug);
@@ -80,6 +87,11 @@ int main(){
 	Buffer ibo(dev, indices.size() * sizeof(uint32_t), BufferUsage::Index, BufferAccess::Immutable);
 	transfer(dev, frame, {(unsigned char*)indices.data(), indices.size() * sizeof(uint32_t)}, ibo);
 
+	UBO uboData = {0.5f, 0.0f};
+	Buffer ubo(dev, sizeof(UBO), BufferUsage::Storage, BufferAccess::Immutable);
+	transfer(dev, frame, {(unsigned char*)&uboData, sizeof(UBO)}, ubo);
+	auto uboHandle = dev.getBindless().storeBuffer(std::move(ubo));
+
 	auto beginRecord = [&](VkImage& image) -> CommandList&{
 		static size_t frameIndex{0};
 		frameIndex = (frameIndex + 1) % gFramesInFlight;
@@ -96,10 +108,11 @@ int main(){
 		cmd.bindGraphicsPipeline(pipeline);
 		cmd.setViewPort(1080, 720, 0, 0);
 		cmd.setScissor(1080, 720, 0, 0);
+		cmd.bindDescriptor(VK_PIPELINE_BIND_POINT_GRAPHICS, 0, dev.getBindless().getSet());
+		cmd.pushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, {(std::byte*)&uboHandle, sizeof(decltype(uboHandle))});
 		cmd.bindVertexBuffer(vbo);
 		cmd.bindIndexBuffer(ibo);
-		float offset[] = { 0.5f, 0.0f };
-		cmd.pushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, {reinterpret_cast<std::byte*>(offset), sizeof(offset)});
+		// cmd.pushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, {reinterpret_cast<std::byte*>(offset), sizeof(offset)});
 		cmd.drawIndexed(indices.size());
 		cmd.endRender();
 	};

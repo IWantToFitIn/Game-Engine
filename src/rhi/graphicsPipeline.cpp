@@ -2,6 +2,7 @@
 #include"vulkanRegistry.hpp"
 #include<log.hpp>
 #include<VulkanDep.hpp>
+#include<device.hpp>
 
 std::vector<VkVertexInputAttributeDescription> GraphicsPipeline::parseForAttributes(std::vector<Shader>& shaders){
 	//use a set first and then convert it to a vector?
@@ -45,8 +46,8 @@ std::vector<VkDescriptorSetLayout> GraphicsPipeline::parseForSetLayouts(std::vec
 	return descriptors;
 }
 
-void GraphicsPipeline::createPipelineLayout(std::vector<Shader>& shaders){
-	auto sets = parseForSetLayouts(shaders);
+void GraphicsPipeline::createPipelineLayout(std::vector<Shader>& shaders, bool bindless){
+	auto sets = bindless ?  std::vector{ mDevice.getBindless().getLayout() } : parseForSetLayouts(shaders);
 	auto constants = parseForConstants(shaders);
 	VkPipelineLayoutCreateInfo create = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -145,8 +146,8 @@ void GraphicsPipeline::createPipeline(std::vector<Shader>& shaders, VkFormat& sw
 		LOG_ERROR << "failed to create vulkan graphics pipeline";
 }
 
-GraphicsPipeline::GraphicsPipeline(Device& dev, std::vector<Shader>& shaders, VkFormat& swapchainFormat) : mDevice(dev){
-	createPipelineLayout(shaders);
+GraphicsPipeline::GraphicsPipeline(Device& dev, std::vector<Shader>& shaders, VkFormat& swapchainFormat, bool bindless) : mDevice(dev){
+	createPipelineLayout(shaders, bindless);
 	createPipeline(shaders, swapchainFormat);	
 }
 

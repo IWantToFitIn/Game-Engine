@@ -1,7 +1,10 @@
 #pragma once
 #include<vulkan/vulkan.h>
-#include<device.hpp>
 #include<span>
+#include<functional>
+#include<vma/vk_mem_alloc.h>
+
+class Device;
 
 enum class BufferUsage{
 	Vertex,
@@ -27,8 +30,8 @@ class Buffer{
 	BufferAccess mAccess;
 	bool mMoved{false};
 
-	VkBufferUsageFlags getUsage(BufferUsage use, BufferAccess access);
-	VmaAllocationCreateFlags getFlags(BufferAccess access);
+	VkBufferUsageFlags getUsage(BufferUsage use, BufferAccess access) const;
+	VmaAllocationCreateFlags getFlags(BufferAccess access) const;
 public:
 	Buffer(Device&, uint32_t size, BufferUsage, BufferAccess);
 	Buffer(Buffer&) = delete;
@@ -38,6 +41,6 @@ public:
 	~Buffer();
 
 	VkBuffer getBuffer() const { return mBuffer; }
-
+	VkBufferUsageFlags getUsage() const { return getUsage(mUsage, mAccess); }
 	bool copyMemory(std::span<unsigned char>);
 };

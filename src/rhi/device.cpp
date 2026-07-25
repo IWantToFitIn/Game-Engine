@@ -320,9 +320,12 @@ Device::Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(
 	auto& surf = surfaceCreator(mInstance);
 	createDevice(surf);
 	createAllocator();
+
+	mBindlessParams = BindlessParams(*this);
 }
 
 Device::~Device(){
+	mBindlessParams = std::nullopt;
 	vmaDestroyAllocator(mAllocator);
 	vkDestroyDevice(mDevice, nullptr);
 	if(mDebugMessenger)

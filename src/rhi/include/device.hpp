@@ -10,8 +10,8 @@
 #include<unordered_map>
 #include<bitset>
 #include<vma/vk_mem_alloc.h>
-
-class CommandList;
+#include<commandList.hpp>
+#include<bindlessParams.hpp>
 
 class Device{
 	struct FeatureChain;
@@ -22,6 +22,7 @@ class Device{
 	VkDevice mDevice;
 	std::vector<Queue> mQueues;
 	VmaAllocator mAllocator;
+	std::optional<BindlessParams> mBindlessParams;
 
 	bool checkExtensionCompatibility(std::string_view);
 	void getExtensionDependencies(std::string_view, std::unordered_set<std::string_view>&, bool devOrInstance);
@@ -43,6 +44,7 @@ public:
 	VkPhysicalDevice getPhysical() const { return mPhysDev; }
 	VmaAllocator getAllocator() const { return mAllocator; }
 	std::optional<std::reference_wrapper<const Queue>> getQueue(CommandUse use) const;
+	BindlessParams& getBindless() { return *mBindlessParams; };
 
 	void waitTillIdle() const;
 	void submit(CommandList&, VkFence, std::span<VkSemaphore> wait, std::span<VkSemaphore> signal, VkPipelineStageFlags);

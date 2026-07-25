@@ -1,7 +1,8 @@
 #include"include/buffer.hpp"
 #include<log.hpp>
+#include<device.hpp>
 
-VkBufferUsageFlags Buffer::getUsage(BufferUsage use, BufferAccess access){
+VkBufferUsageFlags Buffer::getUsage(BufferUsage use, BufferAccess access) const{
 	// transfer has special logic
 	if(use == BufferUsage::Transfer)
 		switch(access){
@@ -58,7 +59,7 @@ VkBufferUsageFlags Buffer::getUsage(BufferUsage use, BufferAccess access){
 	return usage;
 }
 
-VmaAllocationCreateFlags Buffer::getFlags(BufferAccess access){
+VmaAllocationCreateFlags Buffer::getFlags(BufferAccess access) const{
 	switch (access){
 	case BufferAccess::Immutable:
 		return 0;
@@ -92,12 +93,18 @@ Buffer::Buffer(Device& dev, uint32_t size, BufferUsage use, BufferAccess access)
 
 Buffer::Buffer(Buffer&& o) : mDevice(o.mDevice){
 	mBuffer = o.mBuffer;
+	mAllocation = o.mAllocation;
+	mUsage = o.mUsage;
+	mAccess = o.mAccess;
 	o.mMoved = true;
 }
 
 Buffer& Buffer::operator=(Buffer&& o){
 	mDevice = o.mDevice;
 	mBuffer = o.mBuffer;
+	mAllocation = o.mAllocation;
+	mUsage = o.mUsage;
+	mAccess = o.mAccess;
 	o.mMoved = true;
 	return *this;
 }

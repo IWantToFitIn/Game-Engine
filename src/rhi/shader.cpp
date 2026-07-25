@@ -3,6 +3,7 @@
 #include<log.hpp>
 #include<span>
 #include<algorithm>
+#include<device.hpp>
 
 //temporary, probably
 uint32_t formatSize(VkFormat f){

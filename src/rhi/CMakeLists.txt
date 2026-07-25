@@ -32,6 +32,7 @@ add_library(rhi STATIC
 	queue.cpp
 	commandList.cpp
 	buffer.cpp
+	bindlessParams.cpp
 )
 target_include_directories(rhi
 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include

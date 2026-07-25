@@ -118,6 +118,10 @@ void CommandList::pushConstant(VkShaderStageFlags stage, uint32_t offset, std::s
 	vkCmdPushConstants(mCommand, mCurrentLayout, stage, offset, data.size(), data.data());
 }
 
+void CommandList::bindDescriptor(VkPipelineBindPoint bindPoint, uint32_t setIndex, VkDescriptorSet set){
+	vkCmdBindDescriptorSets(mCommand, bindPoint, mCurrentLayout, setIndex, 1, &set, 0, nullptr);
+}
+
 void CommandList::end(){
 	vkEndCommandBuffer(mCommand);
 	mCurrentLayout = 0;

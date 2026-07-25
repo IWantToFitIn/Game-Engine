@@ -2,7 +2,8 @@
 #include<vulkan/vulkan.h>
 #include<vector>
 #include<string>
-#include<device.hpp>
+
+class Device;
 
 //dont wanna include here spirv reflect, because i had some issues with it before
 struct SpvReflectShaderModule;
