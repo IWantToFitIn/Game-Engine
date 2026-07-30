@@ -2,6 +2,7 @@
 #include<device.hpp>
 #include<vulkan/vulkan.h>
 #include<vector>
+#include<image.hpp>
 
 class RenderContext{
 	Device& mDevice;
@@ -26,8 +27,7 @@ public:
 	VkSurfaceKHR& getSurface();
 	VkFormat& getFormat();
 	VkSwapchainKHR& getSwapchain();
-	VkImage& getImage() ;
-	VkImageView& getView() ;
+	Image getImage();
 	VkSemaphore& getSemaphore() ;
 
 	void resize(uint32_t width, uint32_t height);

@@ -14,16 +14,17 @@ void CommandList::begin(){
 	vkBeginCommandBuffer(mCommand, &cmdBeg);
 }
 
-void CommandList::transition(VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image){
+void CommandList::transition(ImageLayout lay, Image& image){
+	auto newLayout = Image::toVulkanLayout(lay);
 	VkImageMemoryBarrier2 barrier{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 		.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 		.srcAccessMask = 0,
 		.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		.oldLayout = oldLayout,
+		.oldLayout = image.getLayout(),
 		.newLayout = newLayout,
-		.image = image,
+		.image = image.getImage(),
 		.subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1 }
 	};
 	VkDependencyInfo barrierDependencyInfo{
@@ -32,9 +33,11 @@ void CommandList::transition(VkImageLayout oldLayout, VkImageLayout newLayout, V
 		.pImageMemoryBarriers = &barrier
 	};
 	vkCmdPipelineBarrier2(mCommand, &barrierDependencyInfo);
+	image.setLayout(newLayout);
 }
 
-void CommandList::beginRender(VkImageView view){
+void CommandList::beginRender(Image& image){
+	auto view = image.getView();
 	VkRenderingAttachmentInfo renderAttach = {
 		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
 		.imageView = view,

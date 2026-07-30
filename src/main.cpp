@@ -92,19 +92,19 @@ int main(){
 	transfer(dev, frame, {(unsigned char*)&uboData, sizeof(UBO)}, ubo);
 	auto uboHandle = dev.getBindless().storeBuffer(std::move(ubo));
 
-	auto beginRecord = [&](VkImage& image) -> CommandList&{
+	auto beginRecord = [&](Image& image) -> CommandList&{
 		static size_t frameIndex{0};
 		frameIndex = (frameIndex + 1) % gFramesInFlight;
 		auto& cmd = cmds[frameIndex];
 
 		cmd.begin();
-		cmd.transition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, image);
+		cmd.transition(ImageLayout::attachment, image);
 
 		return cmd;
 	};
 
-	auto draw = [&](VkImageView& view, CommandList& cmd){
-		cmd.beginRender(view);
+	auto draw = [&](Image& image, CommandList& cmd){
+		cmd.beginRender(image);
 		cmd.bindGraphicsPipeline(pipeline);
 		cmd.setViewPort(1080, 720, 0, 0);
 		cmd.setScissor(1080, 720, 0, 0);
@@ -112,13 +112,12 @@ int main(){
 		cmd.pushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, {(std::byte*)&uboHandle, sizeof(decltype(uboHandle))});
 		cmd.bindVertexBuffer(vbo);
 		cmd.bindIndexBuffer(ibo);
-		// cmd.pushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, {reinterpret_cast<std::byte*>(offset), sizeof(offset)});
 		cmd.drawIndexed(indices.size());
 		cmd.endRender();
 	};
 
-	auto endRecord = [&](VkImage& image, CommandList& cmd){
-		cmd.transition(VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, image);
+	auto endRecord = [&](Image& image, CommandList& cmd){
+		cmd.transition(ImageLayout::present, image);
 		cmd.end();
 	};
 
@@ -128,12 +127,11 @@ int main(){
 		auto fence = frame.getFence();
 		auto imageSemaphore = frame.getSemaphore();
 		con.popNextImage(imageSemaphore);
-		auto& image = con.getImage();
-		auto& view = con.getView();
+		auto image = con.getImage();
 		auto& renderSemaphore = con.getSemaphore();
 
 		auto& cmd = beginRecord(image);
-		draw(view, cmd);
+		draw(image, cmd);
 		endRecord(image, cmd);
 		dev.submit(cmd, fence, { &imageSemaphore, 1 }, { &renderSemaphore, 1 }, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 		con.present();

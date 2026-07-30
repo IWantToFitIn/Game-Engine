@@ -3,6 +3,7 @@
 #include<graphicsPipeline.hpp>
 #include<buffer.hpp>
 #include<queue.hpp>
+#include<image.hpp>
 
 class CommandList{
 	VkCommandBuffer mCommand;
@@ -17,8 +18,8 @@ public:
 	~CommandList() = default;
 
 	void begin();
-	void transition(VkImageLayout o, VkImageLayout n, VkImage);
-	void beginRender(VkImageView);
+	void transition(ImageLayout, Image&);
+	void beginRender(Image&);
 	void bindGraphicsPipeline(GraphicsPipeline&);
 	void setViewPort(uint32_t width, uint32_t height, int32_t offsetX, int32_t offsetY);
 	void setScissor(uint32_t width, uint32_t heght, int32_t offsetX, int32_t offsetY);

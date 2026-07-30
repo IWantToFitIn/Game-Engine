@@ -169,12 +169,8 @@ VkSwapchainKHR& RenderContext::getSwapchain(){
 	return mSwapchain;
 }
 
-VkImage& RenderContext::getImage(){
-	return mImages[mIndex];
-}
-
-VkImageView& RenderContext::getView(){
-	return mImageViews[mIndex];
+Image RenderContext::getImage(){
+	return Image(mDevice, mImages[mIndex], mImageViews[mIndex], ImageLayout::undefined);
 }
 
 VkSemaphore& RenderContext::getSemaphore(){
