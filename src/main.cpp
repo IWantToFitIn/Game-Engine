@@ -7,6 +7,7 @@
 #include<commandPool.hpp>
 #include<frameContext.hpp>
 #include<buffer.hpp>
+#include<sampler.hpp>
 //temporary
 #include<defaultShaderVertex.hpp>
 #include<defaultShaderFragment.hpp>
@@ -43,6 +44,28 @@ struct alignas(16) UBO{
 	float padding3[4];
 };
 
+void uploadImage(Device& dev, FrameContext& frame, std::span<unsigned char> data, Image& dst){
+	Buffer trans(dev, data.size(), BufferUsage::Transfer, BufferAccess::HostMutable);
+	trans.copyMemory(data);
+	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
+	transCmd.begin();
+	transCmd.transition(ImageLayout::transferDst, dst);
+	transCmd.uploadImage(trans, dst, dst.getWidth(), dst.getHeight());
+	transCmd.transition(ImageLayout::sampling, dst);
+	transCmd.end();
+	VkFence fence = [&](){
+		VkFence fence;
+		VkFenceCreateInfo fenceInfo ={
+			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
+		};
+		vkCreateFence(dev.getDevice(), &fenceInfo, nullptr, &fence);
+		return fence;
+	}();
+	dev.submit(transCmd, fence, {}, {}, 0);
+	vkWaitForFences(dev.getDevice(), 1, &fence, VK_TRUE, UINT64_MAX);
+	vkDestroyFence(dev.getDevice(), fence, nullptr);
+}
+
 int main(){
 	initLogger();
 	setFilter(LogSeverity::debug);
@@ -73,10 +96,17 @@ int main(){
 	}
 	frame.finishFrame();
 
+	// const std::vector<Vertex> vertices = {
+	// 	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+	// 	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+	// 	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+	// 	{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+	// };
+	
 	const std::vector<Vertex> vertices = {
-		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+		{{-0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}},
 		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+		{{0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}},
 		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
 	};
 	Buffer vbo(dev, vertices.size() * sizeof(Vertex), BufferUsage::Vertex, BufferAccess::Immutable);
@@ -86,6 +116,12 @@ int main(){
 	};
 	Buffer ibo(dev, indices.size() * sizeof(uint32_t), BufferUsage::Index, BufferAccess::Immutable);
 	transfer(dev, frame, {(unsigned char*)indices.data(), indices.size() * sizeof(uint32_t)}, ibo);
+
+	std::vector<uint32_t> redSquareData(32 * 32, 0xaaff0000);
+	auto redSquareImage = Image(dev, 32, 32, 1, VK_FORMAT_R8G8B8A8_SRGB);
+	uploadImage(dev, frame, {(unsigned char*)redSquareData.data(), redSquareData.size() * sizeof(uint32_t)}, redSquareImage);
+	auto redSquareSampler = Sampler(dev);
+	auto texHandle = dev.getBindless().storeTexture(std::move(redSquareImage), std::move(redSquareSampler));
 
 	UBO uboData = {0.5f, 0.0f};
 	Buffer ubo(dev, sizeof(UBO), BufferUsage::Storage, BufferAccess::Immutable);
@@ -109,7 +145,8 @@ int main(){
 		cmd.setViewPort(1080, 720, 0, 0);
 		cmd.setScissor(1080, 720, 0, 0);
 		cmd.bindDescriptor(VK_PIPELINE_BIND_POINT_GRAPHICS, 0, dev.getBindless().getSet());
-		cmd.pushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, {(std::byte*)&uboHandle, sizeof(decltype(uboHandle))});
+		cmd.pushConstant(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, {(std::byte*)&uboHandle, sizeof(decltype(uboHandle))});
+		cmd.pushConstant(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, {(std::byte*)&texHandle, sizeof(decltype(texHandle))});
 		cmd.bindVertexBuffer(vbo);
 		cmd.bindIndexBuffer(ibo);
 		cmd.drawIndexed(indices.size());

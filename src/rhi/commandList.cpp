@@ -117,6 +117,23 @@ void CommandList::copyBuffer(Buffer& src, Buffer& dst, uint32_t size, uint32_t d
 	vkCmdCopyBuffer(mCommand, src.getBuffer(), dst.getBuffer(), 1, &region);
 }
 
+void CommandList::uploadImage(Buffer& src, Image& dst){
+	VkBufferImageCopy region = {
+		.bufferOffset = 0,
+		.bufferRowLength = 0,
+		.bufferImageHeight = 0,
+		.imageSubresource = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.mipLevel = 0,
+			.baseArrayLayer = 0,
+			.layerCount = 1,	
+		},
+		.imageOffset = {0, 0, 0},
+		.imageExtent = { dst.getWidth(), dst.getHeight(), 1 }
+	};
+	vkCmdCopyBufferToImage(mCommand, src.getBuffer(), dst.getImage(), dst.getLayout(), 1, &region);
+}
+
 void CommandList::pushConstant(VkShaderStageFlags stage, uint32_t offset, std::span<std::byte> data){
 	vkCmdPushConstants(mCommand, mCurrentLayout, stage, offset, data.size(), data.data());
 }

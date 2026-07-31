@@ -34,6 +34,7 @@ add_library(rhi STATIC
 	buffer.cpp
 	bindlessParams.cpp
 	image.cpp
+	sampler.cpp
 )
 target_include_directories(rhi
 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include

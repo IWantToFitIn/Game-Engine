@@ -20,9 +20,10 @@ class Image{
 	VkImageView mView;
 	VmaAllocation mAllocation;
 	VkImageLayout mLayout;
+	uint32_t mWidth, mHeight;
 	bool mMoved{false};
 
-	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat);
+	void createImage(uint32_t mipLevels, VkFormat);
 	void createView(uint32_t mipLevels, VkFormat format);
 public:
 	Image(Device&, uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat);
@@ -33,6 +34,8 @@ public:
 	Image& operator=(Image&&);
 	~Image();
 
+	uint32_t getWidth() const { return mWidth; }
+	uint32_t getHeight() const { return mHeight; }
 	VkImage getImage() const { return mImage; }
 	VkImageView getView() const { return mView; }
 	VkImageLayout getLayout() const { return mLayout; }

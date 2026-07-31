@@ -29,6 +29,7 @@ public:
 	void bindVertexBuffer(Buffer&);
 	void bindIndexBuffer(Buffer&);
 	void copyBuffer(Buffer& src, Buffer& dst, uint32_t size, uint32_t dstOffset);
+	void uploadImage(Buffer& src, Image& dst);
 	void pushConstant(VkShaderStageFlags stage, uint32_t offset, std::span<std::byte> data);
 	void bindDescriptor(VkPipelineBindPoint bindPoint, uint32_t setIndex, VkDescriptorSet set);
 	void end();

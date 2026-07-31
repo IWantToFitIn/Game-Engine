@@ -21,12 +21,12 @@ VkImageLayout Image::toVulkanLayout(ImageLayout lay){
 	return VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-void Image::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format){
+void Image::createImage(uint32_t mipLevels, VkFormat format){
 	VkImageCreateInfo create = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType = VK_IMAGE_TYPE_2D,
 		.format = format,
-		.extent = { .width = width, .height = height, .depth = 1 },
+		.extent = { .width = mWidth, .height = mHeight, .depth = 1 },
 		.mipLevels = mipLevels,
 		.arrayLayers = 1,
 		.samples = VK_SAMPLE_COUNT_1_BIT,
@@ -56,7 +56,9 @@ void Image::createView(uint32_t mipLevels, VkFormat format){
 }
 
 Image::Image(Device& dev, uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format) : mDevice(dev){	
-	createImage(width, height, mipLevels, format);
+	mWidth = width;
+	mHeight = height;
+	createImage(mipLevels, format);
 	createView(mipLevels, format);
 }
 

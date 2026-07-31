@@ -7,6 +7,7 @@
 
 constexpr auto gUniformBinding = 0;
 constexpr auto gStorageBinding = 1;
+constexpr auto gTextureBinding = 2;
 
 void BindlessParams::createLayout(){
 	constexpr auto flagSetting = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
@@ -87,6 +88,7 @@ BindlessParams::BindlessParams(BindlessParams&& o) : mDevice(o.mDevice){
 	mPool = o.mPool;
 	mSet = o.mSet;
 	mStoredBuffers = std::move(o.mStoredBuffers);
+	mStoredTextures = std::move(o.mStoredTextures);
 	o.mMoved = true;
 }
 
@@ -96,6 +98,7 @@ BindlessParams& BindlessParams::operator=(BindlessParams&& o){
 	mPool = o.mPool;
 	mSet = o.mSet;
 	mStoredBuffers = std::move(o.mStoredBuffers);
+	mStoredTextures = std::move(o.mStoredTextures);
 	o.mMoved = true;		
 }
 
@@ -137,4 +140,25 @@ BufferHandle BindlessParams::storeBuffer(Buffer&& buf){
 	vkUpdateDescriptorSets(mDevice.get().getDevice(), index, writes.data(), 0, nullptr);
 	
 	return static_cast<BufferHandle>(newHandle);
+}
+
+TextureHandle BindlessParams::storeTexture(Image&& img, Sampler&& sample){
+	uint32_t newHandle = mStoredTextures.size();
+	mStoredTextures.push_back({std::move(img), std::move(sample)});
+	VkDescriptorImageInfo imageInfo = {
+		.sampler = mStoredTextures.back().second.getSampler(),
+		.imageView = mStoredTextures.back().first.getView(),
+		.imageLayout = mStoredTextures.back().first.getLayout(),
+	};
+	VkWriteDescriptorSet write = {
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.dstSet = mSet,
+		.dstBinding = gTextureBinding,
+		.dstArrayElement = newHandle,
+		.descriptorCount = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.pImageInfo = &imageInfo
+	};
+	vkUpdateDescriptorSets(mDevice.get().getDevice(), 1, &write, 0, nullptr);
+	return static_cast<TextureHandle>(newHandle);
 }

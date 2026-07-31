@@ -2,10 +2,13 @@
 #include<vulkan/vulkan.h>
 #include<vector>
 #include<buffer.hpp>
+#include<image.hpp>
+#include<sampler.hpp>
 
 class Device;
 
 enum class BufferHandle : uint32_t { Invalid = (uint32_t)~0x00 };
+enum class TextureHandle : uint32_t { Invalid = (uint32_t) ~0x00 };
 
 class BindlessParams{
 	std::reference_wrapper<Device> mDevice;
@@ -13,6 +16,7 @@ class BindlessParams{
 	VkDescriptorPool mPool;
 	VkDescriptorSet mSet;
 	std::vector<Buffer> mStoredBuffers;
+	std::vector<std::pair<Image, Sampler>> mStoredTextures;
 	bool mMoved{false};
 
 	void createLayout();
@@ -27,6 +31,7 @@ public:
 	~BindlessParams();
 
 	BufferHandle storeBuffer(Buffer&&);
+	TextureHandle storeTexture(Image&&, Sampler&&);
 	VkDescriptorSetLayout getLayout() const { return mLayout; }
 	VkDescriptorSet getSet() const { return mSet; }
 };
