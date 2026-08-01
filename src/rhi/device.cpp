@@ -326,6 +326,7 @@ Device::Device(std::vector<char const*> extensions, std::function<VkSurfaceKHR&(
 
 Device::~Device(){
 	mBindlessParams = std::nullopt;
+	mQueues.clear();
 	vmaDestroyAllocator(mAllocator);
 	vkDestroyDevice(mDevice, nullptr);
 	if(mDebugMessenger)
@@ -344,12 +345,40 @@ void Device::waitTillIdle() const{
 	vkDeviceWaitIdle(mDevice);
 }
 
-void Device::submit(CommandList& cmd, VkFence fence, std::span<VkSemaphore> wait, std::span<VkSemaphore> signal, VkPipelineStageFlags stage){
+void Device::waitOnToken(SyncToken token, uint64_t timeout) const{
+	auto tokenData = token.get();
+	if(tokenData.semaphore == VK_NULL_HANDLE){
+		LOG_INFO << "tried to wait on invalid (0x00) SyncToken";
+		return;
+	}
+	VkSemaphoreWaitInfo wait = {
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+		.semaphoreCount = 1,
+		.pSemaphores = &tokenData.semaphore,
+		.pValues = &tokenData.value
+	};
+	//compare with vk_succes or vk_timeout?
+	vkWaitSemaphores(mDevice, &wait, timeout);
+}
+void Device::submit(CommandList& cmd, std::span<SyncToken> waitTokens, std::span<SyncToken> signalTokens){
 	auto queueOpt = getQueue(cmd.getPurpose());
 	if(!queueOpt){
 		LOG_WARN << "commandList submited but device can't execute it";
 		return;
 	}
 	auto& queue = queueOpt->get();
-	queue.submit(fence, wait, signal, stage, { &cmd.get(), 1});
+	
+	std::vector<VkSemaphoreSubmitInfo> wait;
+	wait.reserve(waitTokens.size());
+	for(auto& token : waitTokens)
+		wait.push_back(token.get());
+	std::vector<VkSemaphoreSubmitInfo> signal;
+	signal.reserve(signalTokens.size());
+	for(auto& token : signalTokens)
+		signal.push_back(token.get());
+	VkCommandBufferSubmitInfo c = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+		.commandBuffer = cmd.get()
+	};
+	queue.submit({wait.data(), wait.size()}, {signal.data(), signal.size()}, { &c, 1});
 }

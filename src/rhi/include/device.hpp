@@ -12,6 +12,7 @@
 #include<vma/vk_mem_alloc.h>
 #include<commandList.hpp>
 #include<bindlessParams.hpp>
+#include<executionStream.hpp>
 
 class Device{
 	struct FeatureChain;
@@ -47,5 +48,6 @@ public:
 	BindlessParams& getBindless() { return *mBindlessParams; };
 
 	void waitTillIdle() const;
-	void submit(CommandList&, VkFence, std::span<VkSemaphore> wait, std::span<VkSemaphore> signal, VkPipelineStageFlags);
+	void waitOnToken(SyncToken, uint64_t timeout = UINT64_MAX) const;
+	void submit(CommandList&, std::span<SyncToken> waitTokens, std::span<SyncToken> signalTokens);
 };

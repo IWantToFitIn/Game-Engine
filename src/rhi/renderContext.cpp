@@ -139,11 +139,15 @@ RenderContext::RenderContext(Device& dev, VkSurfaceKHR&& surf, uint32_t width, u
 	createSwapchain();
 	createImages();
 
-	mSemaphores.resize(mImages.size());
+	mImageSemaphores.resize(mImages.size());
+	mRenderSemaphores.resize(mImages.size());
 	VkSemaphoreCreateInfo semCreate = {
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
 	};
-	for(auto& semaphore : mSemaphores)
+	for(auto& semaphore : mImageSemaphores)
+		if(vkCreateSemaphore(mDevice.getDevice(), &semCreate, nullptr, &semaphore) != VK_SUCCESS)
+			LOG_ERROR << "failed to create vulkan semaphore";
+	for(auto& semaphore : mRenderSemaphores)
 		if(vkCreateSemaphore(mDevice.getDevice(), &semCreate, nullptr, &semaphore) != VK_SUCCESS)
 			LOG_ERROR << "failed to create vulkan semaphore";
 }
@@ -153,7 +157,9 @@ RenderContext::~RenderContext(){
 		vkDestroyImageView(mDevice.getDevice(), view, nullptr);
 	vkDestroySwapchainKHR(mDevice.getDevice(), mSwapchain, nullptr);
 	vkDestroySurfaceKHR(mDevice.getInstance(), mSurface, nullptr);
-	for(auto& semaphore : mSemaphores)
+	for(auto& semaphore : mImageSemaphores)
+		vkDestroySemaphore(mDevice.getDevice(), semaphore, nullptr);
+	for(auto& semaphore : mRenderSemaphores)
 		vkDestroySemaphore(mDevice.getDevice(), semaphore, nullptr);
 }
 
@@ -173,8 +179,10 @@ Image RenderContext::getImage(){
 	return Image(mDevice, mImages[mIndex], mImageViews[mIndex], ImageLayout::undefined);
 }
 
-VkSemaphore& RenderContext::getSemaphore(){
-	return mSemaphores[mIndex];
+SyncToken RenderContext::getRenderFinishedToken(){
+	SyncToken ret;
+	ret.setSemaphore(mRenderSemaphores[mIndex]);
+	return ret;
 }
 
 void RenderContext::resize(uint32_t width, uint32_t height){
@@ -183,8 +191,15 @@ void RenderContext::resize(uint32_t width, uint32_t height){
 	recreate();
 }
 
-void RenderContext::popNextImage(VkSemaphore semaphore, VkFence fence){
-	vkAcquireNextImageKHR(mDevice.getDevice(), mSwapchain, UINT64_MAX, semaphore, fence, &mIndex);
+SyncToken RenderContext::popNextImage(){
+	//these are ringbuffered instead because i can't sigal the semaphore of the index I'm retrieving
+	static size_t semaphoreIndex{0};
+	semaphoreIndex = (semaphoreIndex + 1) % mImageSemaphores.size();
+	auto semaphore = mImageSemaphores[semaphoreIndex];
+	vkAcquireNextImageKHR(mDevice.getDevice(), mSwapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &mIndex);
+	SyncToken ret;
+	ret.setSemaphore(semaphore);
+	return ret;
 }
 
 void RenderContext::present(){
@@ -197,7 +212,7 @@ void RenderContext::present(){
 		return queueOpt->get();
 	}();
 
-	switch(queue.present({&mSemaphores[mIndex], 1}, mIndex, mSwapchain)){
+	switch(queue.present({&mRenderSemaphores[mIndex], 1}, mIndex, mSwapchain)){
 	case VK_SUCCESS:
 		return;
 	case VK_SUBOPTIMAL_KHR:

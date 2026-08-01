@@ -11,7 +11,8 @@ class RenderContext{
 	VkSwapchainKHR mSwapchain{VK_NULL_HANDLE};
 	std::vector<VkImage> mImages;
 	std::vector<VkImageView> mImageViews;
-	std::vector<VkSemaphore> mSemaphores;
+	std::vector<VkSemaphore> mImageSemaphores;
+	std::vector<VkSemaphore> mRenderSemaphores;
 	VkFormat mFormat;
 	uint32_t mIndex{};
 
@@ -28,10 +29,10 @@ public:
 	VkFormat& getFormat();
 	VkSwapchainKHR& getSwapchain();
 	Image getImage();
-	VkSemaphore& getSemaphore() ;
+	SyncToken getRenderFinishedToken();
 
 	void resize(uint32_t width, uint32_t height);
-	void popNextImage(VkSemaphore, VkFence f = VK_NULL_HANDLE);
+	SyncToken popNextImage();
 	void present();
 };
 

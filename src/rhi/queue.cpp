@@ -1,5 +1,4 @@
 #include"include/queue.hpp"
-#include<log.hpp>
 
 Queue::Queue(VkQueue queue, uint32_t famIndex, std::bitset<32> intendedUse){
 	mQueue = queue;
@@ -32,17 +31,17 @@ VkResult Queue::present(std::span<VkSemaphore> semaphores, uint32_t& imageIndex,
 	return vkQueuePresentKHR(mQueue, &info);
 }
 
-VkResult Queue::submit(VkFence& fence, std::span<VkSemaphore> wait, std::span<VkSemaphore> signal, VkPipelineStageFlags& stage, std::span<VkCommandBuffer> cmds) const{
+VkResult Queue::submit(std::span<VkSemaphoreSubmitInfo> waits, std::span<VkSemaphoreSubmitInfo> signals, std::span<VkCommandBufferSubmitInfo> commands) const{
 	std::lock_guard<std::mutex> lock(mMutex);
-	VkSubmitInfo submitInfo{
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.waitSemaphoreCount = static_cast<uint32_t>(wait.size()),
-		.pWaitSemaphores = wait.data(),
-		.pWaitDstStageMask = &stage,
-		.commandBufferCount = static_cast<uint32_t>(cmds.size()),
-		.pCommandBuffers = cmds.data(),
-		.signalSemaphoreCount = static_cast<uint32_t>(signal.size()),
-		.pSignalSemaphores = signal.data()
+	
+	VkSubmitInfo2 submitInfo = {
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+		.waitSemaphoreInfoCount = waits.size(),
+		.pWaitSemaphoreInfos = waits.data(),
+		.commandBufferInfoCount = commands.size(),
+		.pCommandBufferInfos = commands.data(),
+		.signalSemaphoreInfoCount = signals.size(),
+		.pSignalSemaphoreInfos = signals.data(),
 	};
-	return vkQueueSubmit(mQueue, 1, &submitInfo, fence);
+	return vkQueueSubmit2(mQueue, 1, &submitInfo, VK_NULL_HANDLE);
 }

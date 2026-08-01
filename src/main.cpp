@@ -17,24 +17,16 @@ struct Vertex {
 	float color[3];
 };
 
-void transfer(Device& dev, FrameContext& frame, std::span<unsigned char> data, Buffer& dst){
+void transfer(Device& dev, ExecutionStream& str, FrameContext& frame, std::span<unsigned char> data, Buffer& dst){
 	Buffer trans(dev, data.size(), BufferUsage::Transfer, BufferAccess::HostMutable);
 	trans.copyMemory(data);
 	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
 	transCmd.begin();
 	transCmd.copyBuffer(trans, dst, data.size(), 0);
 	transCmd.end();
-	VkFence fence = [&](){
-		VkFence fence;
-		VkFenceCreateInfo fenceInfo ={
-			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
-		};
-		vkCreateFence(dev.getDevice(), &fenceInfo, nullptr, &fence);
-		return fence;
-	}();
-	dev.submit(transCmd, fence, {}, {}, 0);
-	vkWaitForFences(dev.getDevice(), 1, &fence, VK_TRUE, UINT64_MAX);
-	vkDestroyFence(dev.getDevice(), fence, nullptr);
+	auto waitToken = str.acquireNextToken();
+	dev.submit(transCmd, {}, {&waitToken, 1});
+	dev.waitOnToken(waitToken);
 }
 
 struct alignas(16) UBO{
@@ -44,7 +36,7 @@ struct alignas(16) UBO{
 	float padding3[4];
 };
 
-void uploadImage(Device& dev, FrameContext& frame, std::span<unsigned char> data, Image& dst){
+void uploadImage(Device& dev, ExecutionStream& str, FrameContext& frame, std::span<unsigned char> data, Image& dst){
 	Buffer trans(dev, data.size(), BufferUsage::Transfer, BufferAccess::HostMutable);
 	trans.copyMemory(data);
 	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
@@ -53,17 +45,9 @@ void uploadImage(Device& dev, FrameContext& frame, std::span<unsigned char> data
 	transCmd.uploadImage(trans, dst);
 	transCmd.transition(ImageLayout::sampling, dst);
 	transCmd.end();
-	VkFence fence = [&](){
-		VkFence fence;
-		VkFenceCreateInfo fenceInfo ={
-			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
-		};
-		vkCreateFence(dev.getDevice(), &fenceInfo, nullptr, &fence);
-		return fence;
-	}();
-	dev.submit(transCmd, fence, {}, {}, 0);
-	vkWaitForFences(dev.getDevice(), 1, &fence, VK_TRUE, UINT64_MAX);
-	vkDestroyFence(dev.getDevice(), fence, nullptr);
+	auto waitToken = str.acquireNextToken();
+	dev.submit(transCmd, {}, {&waitToken, 1});
+	dev.waitOnToken(waitToken);
 }
 
 int main(){
@@ -88,13 +72,8 @@ int main(){
 	shaders.emplace_back(dev, gDefaultshaderfragment);
 	GraphicsPipeline pipeline(dev, shaders, con.getFormat());
 	FrameContext frame(dev);
-	std::vector<CommandList> cmds;// = frame.getGraphicsBuffers(gFramesInFlight);
-	for(int i = 0; i < gFramesInFlight; i++){
-		auto newCmds = frame.getGraphicsBuffers(1);
-		cmds.emplace_back(std::move(newCmds[0]));
-		frame.finishFrame();
-	}
-	frame.finishFrame();
+	ExecutionStream transferStream(dev, {VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT }, 3);
+	ExecutionStream graphicsStream(dev, {VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT}, 3);
 
 	// const std::vector<Vertex> vertices = {
 	// 	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
@@ -110,33 +89,27 @@ int main(){
 		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
 	};
 	Buffer vbo(dev, vertices.size() * sizeof(Vertex), BufferUsage::Vertex, BufferAccess::Immutable);
-	transfer(dev, frame, {(unsigned char*)vertices.data(), vertices.size() * sizeof(Vertex)}, vbo);
+	transfer(dev, transferStream, frame, {(unsigned char*)vertices.data(), vertices.size() * sizeof(Vertex)}, vbo);
 	const std::vector<uint32_t> indices = {
 		0, 1, 2, 2, 3, 0
 	};
 	Buffer ibo(dev, indices.size() * sizeof(uint32_t), BufferUsage::Index, BufferAccess::Immutable);
-	transfer(dev, frame, {(unsigned char*)indices.data(), indices.size() * sizeof(uint32_t)}, ibo);
+	transfer(dev, transferStream, frame, {(unsigned char*)indices.data(), indices.size() * sizeof(uint32_t)}, ibo);
 
 	std::vector<uint32_t> redSquareData(32 * 32, 0xaaff0000);
 	auto redSquareImage = Image(dev, 32, 32, 1, VK_FORMAT_R8G8B8A8_SRGB);
-	uploadImage(dev, frame, {(unsigned char*)redSquareData.data(), redSquareData.size() * sizeof(uint32_t)}, redSquareImage);
+	uploadImage(dev, transferStream, frame, {(unsigned char*)redSquareData.data(), redSquareData.size() * sizeof(uint32_t)}, redSquareImage);
 	auto redSquareSampler = Sampler(dev);
 	auto texHandle = dev.getBindless().storeTexture(std::move(redSquareImage), std::move(redSquareSampler));
 
 	UBO uboData = {0.5f, 0.0f};
 	Buffer ubo(dev, sizeof(UBO), BufferUsage::Storage, BufferAccess::Immutable);
-	transfer(dev, frame, {(unsigned char*)&uboData, sizeof(UBO)}, ubo);
+	transfer(dev, transferStream, frame, {(unsigned char*)&uboData, sizeof(UBO)}, ubo);
 	auto uboHandle = dev.getBindless().storeBuffer(std::move(ubo));
 
-	auto beginRecord = [&](Image& image) -> CommandList&{
-		static size_t frameIndex{0};
-		frameIndex = (frameIndex + 1) % gFramesInFlight;
-		auto& cmd = cmds[frameIndex];
-
+	auto beginRecord = [&](Image& image, CommandList& cmd){
 		cmd.begin();
 		cmd.transition(ImageLayout::attachment, image);
-
-		return cmd;
 	};
 
 	auto draw = [&](Image& image, CommandList& cmd){
@@ -160,20 +133,25 @@ int main(){
 
 	while(win.process()){
 		frame.prepareFrame();
-
-		auto fence = frame.getFence();
-		auto imageSemaphore = frame.getSemaphore();
-		con.popNextImage(imageSemaphore);
+		
+		auto imageToken = con.popNextImage();
 		auto image = con.getImage();
-		auto& renderSemaphore = con.getSemaphore();
+		auto presentToken = con.getRenderFinishedToken();
+		auto workFinishedToken = graphicsStream.acquireNextToken();
 
-		auto& cmd = beginRecord(image);
+		//memory leak, probably somewhere here
+		//frame Context should be removed
+		auto cmd = std::move(frame.getGraphicsBuffers(1)[0]);
+
+		beginRecord(image, cmd);
 		draw(image, cmd);
 		endRecord(image, cmd);
-		dev.submit(cmd, fence, { &imageSemaphore, 1 }, { &renderSemaphore, 1 }, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+		std::array<SyncToken, 2> signalTokens = {presentToken, workFinishedToken};
+		dev.submit(cmd, {&imageToken, 1}, signalTokens);
 		con.present();
 		
-		frame.finishFrame();
+		frame.finishFrame(workFinishedToken);
+		graphicsStream.finalizePass();
 	}
 	dev.waitTillIdle();
 }

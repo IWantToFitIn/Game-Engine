@@ -28,7 +28,7 @@ public:
 	Queue& operator=(Queue&&);
 
 	VkResult present(std::span<VkSemaphore>, uint32_t& imageIndex, VkSwapchainKHR&) const;
-	VkResult submit(VkFence&, std::span<VkSemaphore> wait, std::span<VkSemaphore> signal, VkPipelineStageFlags&, std::span<VkCommandBuffer>) const;
+	VkResult submit(std::span<VkSemaphoreSubmitInfo> waits, std::span<VkSemaphoreSubmitInfo> signals, std::span<VkCommandBufferSubmitInfo> commands) const;
 	uint32_t getIndex() const { return mFamilyIndex; }
 	bool intendedFor(CommandUse use) const { return (std::bitset<32>(static_cast<uint32_t>(use)) & mIntendedUse).any(); }
 };

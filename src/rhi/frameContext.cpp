@@ -34,41 +34,7 @@ size_t FrameContext::getPoolIndex(std::thread::id, CommandUse use){
 	return mPools.size() - 1;
 }
 
-FrameContext::FrameContext(Device& dev) : mDevice(dev){
-	VkFenceCreateInfo fenCreate = {
-		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-		.flags = VK_FENCE_CREATE_SIGNALED_BIT
-	};
-	for(auto& fence : mFences)
-		if(vkCreateFence(mDevice.getDevice(), &fenCreate, nullptr, &fence) != VK_SUCCESS)
-			LOG_ERROR << "failed to create vulkan fence";
-
-	VkSemaphoreCreateInfo semCreate = {
-		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
-	};
-	for(auto& semaphore : mSemaphores)
-		if(vkCreateSemaphore(mDevice.getDevice(), &semCreate, nullptr, &semaphore) != VK_SUCCESS)
-			LOG_ERROR << "failed to create vulkan semaphore";
-}
-
-FrameContext::~FrameContext(){
-	for(auto& fence : mFences){
-		if(vkGetFenceStatus(mDevice.getDevice(), fence) == VK_NOT_READY)
-			vkWaitForFences(mDevice.getDevice(), 1, &fence, VK_TRUE, UINT64_MAX); //dunno about the max here
-		vkDestroyFence(mDevice.getDevice(), fence, nullptr);
-	}
-	for(auto& semaphore : mSemaphores)
-		vkDestroySemaphore(mDevice.getDevice(), semaphore, nullptr);
-}
-
-
-VkFence FrameContext::getFence(){
-	return mFences[mCurrentIndex];
-}
-
-VkSemaphore FrameContext::getSemaphore(){
-	return mSemaphores[mCurrentIndex];
-}
+FrameContext::FrameContext(Device& dev) : mDevice(dev){}
 
 std::vector<CommandList> FrameContext::getGraphicsBuffers(uint32_t count){
 	static thread_local size_t poolIndex = getPoolIndex(std::this_thread::get_id(), CommandUse::draw);
@@ -91,14 +57,14 @@ std::vector<CommandList> FrameContext::getComputeBuffers(uint32_t count){
 	return pool[mCurrentIndex].allocateCommands(count, false);
 }
 
-void FrameContext::finishFrame(){
+void FrameContext::finishFrame(SyncToken token){
+	mFences[mCurrentIndex] = token;
 	mCurrentIndex = (mCurrentIndex + 1) % gFramesInFlight;
 }
 
 void FrameContext::prepareFrame(){
-	vkWaitForFences(mDevice.getDevice(), 1, &mFences[mCurrentIndex], VK_TRUE, UINT64_MAX);
-	vkResetFences(mDevice.getDevice(), 1, &mFences[mCurrentIndex]);
 	std::unique_lock<std::shared_mutex> lock(mMutex);
+	mDevice.waitOnToken(mFences[mCurrentIndex]);
 	for(auto& poolArray : mPools)
 		poolArray[mCurrentIndex].reset();
 }
