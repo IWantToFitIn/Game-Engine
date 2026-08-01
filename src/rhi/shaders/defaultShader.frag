@@ -6,7 +6,7 @@ layout(set = 0, binding = 2) uniform sampler2D bindlessTextures[];
 layout(location = 0) in vec3 fragColor;
 
 layout(push_constant) uniform PushConstants {
-	uint TextureIndex;
+	layout(offset = 4) uint TextureIndex;
 };
 
 layout(location = 0) out vec4 outColor;

@@ -1,5 +1,5 @@
 #include"include/commandList.hpp"
-
+#include<log.hpp>
 
 CommandList::CommandList(VkCommandBuffer cmd, CommandUse purpose){
 	mCommand = cmd;
@@ -63,6 +63,7 @@ void CommandList::beginRender(Image& image){
 
 void CommandList::bindGraphicsPipeline(GraphicsPipeline& pipe){
 	mCurrentLayout = pipe.getLayout();
+	mCurrentPipeline = &pipe;
 	vkCmdBindPipeline(mCommand, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.get());
 }
 
@@ -134,12 +135,41 @@ void CommandList::uploadImage(Buffer& src, Image& dst){
 	vkCmdCopyBufferToImage(mCommand, src.getBuffer(), dst.getImage(), dst.getLayout(), 1, &region);
 }
 
-void CommandList::pushConstant(VkShaderStageFlags stage, uint32_t offset, std::span<std::byte> data){
+void CommandList::pushConstant(std::string name, std::span<const std::byte> data){
+	if(mCurrentPipeline == nullptr){
+		LOG_ERROR << "tried to push constant with no pipeline bound";
+		return;
+	}
+	auto handle = mCurrentPipeline->getConstantHandle(name);
+	if(mCurrentPipeline->getConstantSize(handle) != data.size()){
+		LOG_ERROR << "the push constant size and provided data buffer size don't match";
+		return;
+	}
+	pushConstant(mCurrentPipeline->getConstantStage(handle), mCurrentPipeline->getConstantOffset(handle), data);
+}
+
+void CommandList::pushConstant(PushConstantHandle handle, std::span<const std::byte> data){
+	if(mCurrentPipeline == nullptr){
+		LOG_ERROR << "tried to push constant with no pipeline bound";
+		return;
+	}
+	if(mCurrentPipeline->getConstantSize(handle) != data.size()){
+		LOG_ERROR << "the push constant size and provided data buffer size don't match";
+		return;
+	}
+	pushConstant(mCurrentPipeline->getConstantStage(handle), mCurrentPipeline->getConstantOffset(handle), data);
+}
+
+void CommandList::pushConstant(VkShaderStageFlags stage, uint32_t offset, std::span<const std::byte> data){
 	vkCmdPushConstants(mCommand, mCurrentLayout, stage, offset, data.size(), data.data());
 }
 
-void CommandList::bindDescriptor(VkPipelineBindPoint bindPoint, uint32_t setIndex, VkDescriptorSet set){
-	vkCmdBindDescriptorSets(mCommand, bindPoint, mCurrentLayout, setIndex, 1, &set, 0, nullptr);
+void CommandList::bindDescriptor(uint32_t setIndex, VkDescriptorSet set){
+	if(mCurrentPipeline == nullptr){
+		LOG_ERROR << "tried to bind descriptor with no pipeline bound";
+		return;
+	}
+	vkCmdBindDescriptorSets(mCommand, mCurrentPipeline->getBindPoint(), mCurrentLayout, setIndex, 1, &set, 0, nullptr);
 }
 
 void CommandList::end(){

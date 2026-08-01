@@ -9,6 +9,7 @@ class CommandList{
 	VkCommandBuffer mCommand;
 	CommandUse mPurpose;
 	VkPipelineLayout mCurrentLayout{};
+	GraphicsPipeline* mCurrentPipeline{nullptr};
 public:
 	CommandList(VkCommandBuffer, CommandUse);
 	CommandList(CommandList&) = delete;
@@ -30,8 +31,22 @@ public:
 	void bindIndexBuffer(Buffer&);
 	void copyBuffer(Buffer& src, Buffer& dst, uint32_t size, uint32_t dstOffset);
 	void uploadImage(Buffer& src, Image& dst);
-	void pushConstant(VkShaderStageFlags stage, uint32_t offset, std::span<std::byte> data);
-	void bindDescriptor(VkPipelineBindPoint bindPoint, uint32_t setIndex, VkDescriptorSet set);
+	void pushConstant(std::string name, std::span<const std::byte> data);
+	template<typename T>
+	void pushConstant(std::string name, T& data){
+		pushConstant(name, std::as_bytes(std::span{std::addressof(data), 1}));
+	}
+	void pushConstant(PushConstantHandle, std::span<const std::byte> data);
+	template<typename T>
+	void pushConstant(PushConstantHandle handle, T& data){
+		pushConstant(handle, std::as_bytes(std::span{std::addressof(data), 1}));
+	}
+	void pushConstant(VkShaderStageFlags stage, uint32_t offset, std::span<const std::byte> data);
+	template<typename T>
+	void pushConstant(VkShaderStageFlags stage, uint32_t offset, T& data){
+		pushConstant(stage, offset, std::as_bytes(std::span{std::addressof(data), 1}));
+	}
+	void bindDescriptor(uint32_t setIndex, VkDescriptorSet set);
 	void end();
 
 	VkCommandBuffer& get() { return mCommand; }

@@ -292,12 +292,19 @@ void Shader::reflectInputVariables(SpvReflectShaderModule& shaderReflect){
 }
 
 void Shader::reflectUniforms(SpvReflectShaderModule& shaderReflect){
-	for(auto& constant : std::span{shaderReflect.push_constant_blocks, shaderReflect.push_constant_block_count})
-		mConstants.push_back(VkPushConstantRange{
+	for(auto& constantBlock : std::span{shaderReflect.push_constant_blocks, shaderReflect.push_constant_block_count}){
+		mConstantBlocks.push_back(VkPushConstantRange{
 			.stageFlags = static_cast<VkShaderStageFlags>(mStageInfo.stage),
-			.offset = constant.offset,
-			.size = constant.size
+			.offset = constantBlock.offset,
+			.size = constantBlock.size
 		});
+		for(auto& constant : std::span{constantBlock.members, constantBlock.member_count})
+			mConstants.push_back(PushConstantMetadata{
+				.name = constant.name,
+				.offset = constant.offset,
+				.size = constant.size
+			});
+	}
 }
 
 void Shader::reflectShader(std::vector<uint32_t> data){
@@ -358,6 +365,7 @@ Shader::Shader(Shader&& o) : mDevice(o.mDevice){
 	mAttributes = std::move(o.mAttributes);
 	mBindings = std::move(o.mBindings);
 	mConstants = std::move(o.mConstants);
+	mConstantBlocks = std::move(o.mConstantBlocks);
 	mDescriptors = std::move(o.mDescriptors);
 	mStageInfo = std::move(o.mStageInfo);
 	mStageInfo.pName = mEntry.c_str();
@@ -381,7 +389,11 @@ const std::vector<VkVertexInputBindingDescription>& Shader::getBindings() const{
 	return mBindings;
 }
 
-const std::vector<VkPushConstantRange>& Shader::getConstants() const{
+const std::vector<VkPushConstantRange>& Shader::getConstantBlocks() const{
+	return mConstantBlocks;
+}
+
+const std::vector<PushConstantMetadata>& Shader::getConstants() const{
 	return mConstants;
 }
 

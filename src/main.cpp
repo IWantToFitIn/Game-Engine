@@ -50,7 +50,7 @@ void uploadImage(Device& dev, FrameContext& frame, std::span<unsigned char> data
 	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
 	transCmd.begin();
 	transCmd.transition(ImageLayout::transferDst, dst);
-	transCmd.uploadImage(trans, dst, dst.getWidth(), dst.getHeight());
+	transCmd.uploadImage(trans, dst);
 	transCmd.transition(ImageLayout::sampling, dst);
 	transCmd.end();
 	VkFence fence = [&](){
@@ -144,9 +144,9 @@ int main(){
 		cmd.bindGraphicsPipeline(pipeline);
 		cmd.setViewPort(1080, 720, 0, 0);
 		cmd.setScissor(1080, 720, 0, 0);
-		cmd.bindDescriptor(VK_PIPELINE_BIND_POINT_GRAPHICS, 0, dev.getBindless().getSet());
-		cmd.pushConstant(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, {(std::byte*)&uboHandle, sizeof(decltype(uboHandle))});
-		cmd.pushConstant(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, {(std::byte*)&texHandle, sizeof(decltype(texHandle))});
+		cmd.bindDescriptor(0, dev.getBindless().getSet());
+		cmd.pushConstant("Index", uboHandle);
+		cmd.pushConstant("TextureIndex", texHandle);
 		cmd.bindVertexBuffer(vbo);
 		cmd.bindIndexBuffer(ibo);
 		cmd.drawIndexed(indices.size());

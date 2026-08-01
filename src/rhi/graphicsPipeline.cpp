@@ -3,6 +3,7 @@
 #include<log.hpp>
 #include<VulkanDep.hpp>
 #include<device.hpp>
+#include<map>
 
 std::vector<VkVertexInputAttributeDescription> GraphicsPipeline::parseForAttributes(std::vector<Shader>& shaders){
 	//use a set first and then convert it to a vector?
@@ -29,12 +30,44 @@ std::vector<VkVertexInputBindingDescription> GraphicsPipeline::parseForBindings(
 }
 
 std::vector<VkPushConstantRange> GraphicsPipeline::parseForConstants(std::vector<Shader>& shaders){
-	std::vector<VkPushConstantRange> constants;
-	for(auto& shader : shaders){
-		const auto& shaderConstants = shader.getConstants();
-		constants.insert(constants.end(), shaderConstants.begin(), shaderConstants.end());
+	VkPushConstantRange range{
+		.stageFlags = 0,
+		.offset = (uint32_t)~0x00,
+		.size = 0
+	};
+	for(auto& shader : shaders)
+		for(auto constantBlock : shader.getConstantBlocks()){
+			range.offset = std::min(range.offset, constantBlock.offset);
+			range.size = std::max(range.size, constantBlock.offset + constantBlock.size);
+			range.stageFlags |= shader.getStageInfo().stage;
+		}
+	range.size -= range.offset;
+
+	std::unordered_map<std::string, VkPushConstantRange> constants;
+	for(auto& shader : shaders)
+		for(auto& constant : shader.getConstants()){
+			auto it = constants.find(constant.name);
+
+			if(it == constants.end())
+				constants[constant.name] = {
+					.stageFlags = range.stageFlags,
+					.offset = constant.offset,
+					.size = constant.size
+				};
+			else {
+				if((it->second.offset != constant.offset) || (it->second.size != constant.size))
+					LOG_WARN << "name conflict in push constant variables of shader pipeline";
+			}
+		}
+	mPushConstants.reserve(constants.size());
+	for(auto& [name, range] : constants){
+		mPushConstantNames[name] = mPushConstants.size();
+		mPushConstants.push_back(range);
 	}
-	return constants;
+
+	if(range.offset != (uint32_t)~0x00)
+		return {range};
+	return {};
 }
 
 std::vector<VkDescriptorSetLayout> GraphicsPipeline::parseForSetLayouts(std::vector<Shader>& shaders){
@@ -154,4 +187,22 @@ GraphicsPipeline::GraphicsPipeline(Device& dev, std::vector<Shader>& shaders, Vk
 GraphicsPipeline::~GraphicsPipeline(){
 	vkDestroyPipeline(mDevice.getDevice(), mPipeline, nullptr);
 	vkDestroyPipelineLayout(mDevice.getDevice(), mLayout, nullptr);
+}
+
+PushConstantHandle GraphicsPipeline::getConstantHandle(std::string name) const{
+	if(mPushConstantNames.find(name) != mPushConstantNames.end())
+		return static_cast<PushConstantHandle>(mPushConstantNames.at(name));
+	return PushConstantHandle::Invalid;
+}
+
+uint32_t GraphicsPipeline::getConstantOffset(PushConstantHandle handle) const{
+	return mPushConstants[static_cast<uint32_t>(handle)].offset;
+}
+
+uint32_t GraphicsPipeline::getConstantSize(PushConstantHandle handle) const{
+	return mPushConstants[static_cast<uint32_t>(handle)].size;
+}
+
+VkShaderStageFlags GraphicsPipeline::getConstantStage(PushConstantHandle handle) const{
+	return mPushConstants[static_cast<uint32_t>(handle)].stageFlags;
 }
