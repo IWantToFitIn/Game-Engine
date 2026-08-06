@@ -42,5 +42,5 @@ public:
 
 	VkBuffer getBuffer() const { return mBuffer; }
 	VkBufferUsageFlags getUsage() const { return getUsage(mUsage, mAccess); }
-	bool copyMemory(std::span<unsigned char>);
+	bool copyMemory(std::span<const std::byte>);
 };

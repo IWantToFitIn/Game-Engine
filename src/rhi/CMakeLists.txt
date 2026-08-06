@@ -36,6 +36,7 @@ add_library(rhi STATIC
 	image.cpp
 	sampler.cpp
 	executionStream.cpp
+	graphicsPipelineBuilder.cpp
 )
 target_include_directories(rhi
 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include

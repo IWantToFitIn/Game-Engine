@@ -8,6 +8,7 @@
 #include<frameContext.hpp>
 #include<buffer.hpp>
 #include<sampler.hpp>
+#include<pipelineBuilder.hpp>
 //temporary
 #include<defaultShaderVertex.hpp>
 #include<defaultShaderFragment.hpp>
@@ -17,7 +18,7 @@ struct Vertex {
 	float color[3];
 };
 
-void transfer(Device& dev, ExecutionStream& str, FrameContext& frame, std::span<unsigned char> data, Buffer& dst){
+void transfer(Device& dev, ExecutionStream& str, FrameContext& frame, std::span<const std::byte> data, Buffer& dst){
 	Buffer trans(dev, data.size(), BufferUsage::Transfer, BufferAccess::HostMutable);
 	trans.copyMemory(data);
 	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
@@ -36,7 +37,7 @@ struct alignas(16) UBO{
 	float padding3[4];
 };
 
-void uploadImage(Device& dev, ExecutionStream& str, FrameContext& frame, std::span<unsigned char> data, Image& dst){
+void uploadImage(Device& dev, ExecutionStream& str, FrameContext& frame, std::span<const std::byte> data, Image& dst){
 	Buffer trans(dev, data.size(), BufferUsage::Transfer, BufferAccess::HostMutable);
 	trans.copyMemory(data);
 	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
@@ -70,7 +71,13 @@ int main(){
 	std::vector<Shader> shaders{};
 	shaders.emplace_back(dev, gDefaultshadervertex);
 	shaders.emplace_back(dev, gDefaultshaderfragment);
-	GraphicsPipeline pipeline(dev, shaders, con.getFormat());
+	GraphicsPipelineBuilder builder;
+	builder.setBindless(true)
+		.addShader(shaders[0])
+		.addShader(shaders[1])
+		.setRenderContext(con)
+		.addBinding(0, 2);
+	auto pipeline = builder.getResult(dev);
 	FrameContext frame(dev);
 	ExecutionStream transferStream(dev, {VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT }, 3);
 	ExecutionStream graphicsStream(dev, {VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT}, 3);
@@ -89,22 +96,22 @@ int main(){
 		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
 	};
 	Buffer vbo(dev, vertices.size() * sizeof(Vertex), BufferUsage::Vertex, BufferAccess::Immutable);
-	transfer(dev, transferStream, frame, {(unsigned char*)vertices.data(), vertices.size() * sizeof(Vertex)}, vbo);
+	transfer(dev, transferStream, frame, std::as_bytes(std::span{vertices}), vbo);
 	const std::vector<uint32_t> indices = {
 		0, 1, 2, 2, 3, 0
 	};
 	Buffer ibo(dev, indices.size() * sizeof(uint32_t), BufferUsage::Index, BufferAccess::Immutable);
-	transfer(dev, transferStream, frame, {(unsigned char*)indices.data(), indices.size() * sizeof(uint32_t)}, ibo);
+	transfer(dev, transferStream, frame, std::as_bytes(std::span{indices}), ibo);
 
 	std::vector<uint32_t> redSquareData(32 * 32, 0xaaff0000);
 	auto redSquareImage = Image(dev, 32, 32, 1, VK_FORMAT_R8G8B8A8_SRGB);
-	uploadImage(dev, transferStream, frame, {(unsigned char*)redSquareData.data(), redSquareData.size() * sizeof(uint32_t)}, redSquareImage);
+	uploadImage(dev, transferStream, frame, std::as_bytes(std::span{redSquareData}), redSquareImage);
 	auto redSquareSampler = Sampler(dev);
 	auto texHandle = dev.getBindless().storeTexture(std::move(redSquareImage), std::move(redSquareSampler));
 
 	UBO uboData = {0.5f, 0.0f};
 	Buffer ubo(dev, sizeof(UBO), BufferUsage::Storage, BufferAccess::Immutable);
-	transfer(dev, transferStream, frame, {(unsigned char*)&uboData, sizeof(UBO)}, ubo);
+	transfer(dev, transferStream, frame, std::as_bytes(std::span{&uboData, 1}), ubo);
 	auto uboHandle = dev.getBindless().storeBuffer(std::move(ubo));
 
 	auto beginRecord = [&](Image& image, CommandList& cmd){

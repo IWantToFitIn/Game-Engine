@@ -114,7 +114,7 @@ Buffer::~Buffer(){
 	vmaDestroyBuffer(mDevice.get().getAllocator(), mBuffer, mAllocation);
 }
 
-bool Buffer::copyMemory(std::span<unsigned char> data){
+bool Buffer::copyMemory(std::span<const std::byte> data){
 	if(mAccess != BufferAccess::HostMutable)
 		LOG_WARN << "attempting to copy data to a buffer without host mutable access";
 

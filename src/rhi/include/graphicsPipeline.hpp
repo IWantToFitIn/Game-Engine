@@ -8,6 +8,12 @@ class Device;
 
 enum class PushConstantHandle : uint32_t { Invalid = (uint32_t)~0x00};
 
+struct Binding{
+	uint32_t firstAttribute;
+	uint32_t attributeCount;
+	bool instancedInputRate;
+};
+
 class GraphicsPipeline{
 	Device& mDevice;
 	VkPipeline mPipeline;
@@ -16,14 +22,13 @@ class GraphicsPipeline{
 	std::vector<VkPushConstantRange> mPushConstants;
 	std::unordered_map<std::string, uint32_t> mPushConstantNames;
 
-	std::vector<VkVertexInputAttributeDescription> parseForAttributes(std::vector<Shader>&);
-	std::vector<VkVertexInputBindingDescription> parseForBindings(std::vector<Shader>&);
-	std::vector<VkPushConstantRange> parseForConstants(std::vector<Shader>&);
-	std::vector<VkDescriptorSetLayout> parseForSetLayouts(std::vector<Shader>&);
-	void createPipelineLayout(std::vector<Shader>&, bool bindless);
-	void createPipeline(std::vector<Shader>&, VkFormat&);
+	std::pair<std::vector<VkVertexInputAttributeDescription>, std::vector<VkVertexInputBindingDescription>> parseForAttributesAndBindings(std::vector<std::reference_wrapper<const Shader>>, std::vector<Binding>);
+	std::vector<VkPushConstantRange> parseForConstants(std::vector<std::reference_wrapper<const Shader>>);
+	std::vector<VkDescriptorSetLayout> parseForSetLayouts(std::vector<std::reference_wrapper<const Shader>>);
+	void createPipelineLayout(std::vector<std::reference_wrapper<const Shader>>, bool bindless);
+	void createPipeline(std::vector<std::reference_wrapper<const Shader>>, VkFormat&, std::vector<Binding>);
 public:
-	GraphicsPipeline(Device&, std::vector<Shader>&, VkFormat& swapchainFormat, bool bindless = true);
+	GraphicsPipeline(Device&, std::vector<std::reference_wrapper<const Shader>>, VkFormat& swapchainFormat, std::vector<Binding>, bool bindless = true);
 	~GraphicsPipeline();
 
 	VkPipeline get() const { return mPipeline; }

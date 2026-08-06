@@ -14,13 +14,17 @@ struct PushConstantMetadata{
 	uint32_t size;
 };
 
+struct Attribute{
+	uint32_t location;
+	VkFormat format;
+};
+
 class Shader{
 	Device& mDevice;
 	bool mMoved{false};
 	VkShaderModule mShader;
 	std::string mEntry;
-	std::vector<VkVertexInputBindingDescription>  mBindings;
-	std::vector<VkVertexInputAttributeDescription> mAttributes;
+	std::vector<Attribute> mAttributes;
 	std::vector<PushConstantMetadata> mConstants;
 	std::vector<VkPushConstantRange> mConstantBlocks;
 	std::vector<VkDescriptorSetLayout> mDescriptors;
@@ -36,9 +40,8 @@ public:
 	Shader(Shader&&);
 	Shader& operator=(Shader&&) = delete;
 	~Shader();
-	VkPipelineShaderStageCreateInfo getStageInfo();
-	const std::vector<VkVertexInputAttributeDescription>& getAttributes() const;
-	const std::vector<VkVertexInputBindingDescription>& getBindings() const;
+	VkPipelineShaderStageCreateInfo getStageInfo() const;
+	const std::vector<Attribute>& getAttributes() const;
 	const std::vector<PushConstantMetadata>& getConstants() const;
 	const std::vector<VkPushConstantRange>& getConstantBlocks() const;
 	const std::vector<VkDescriptorSetLayout>& getDescriptors() const;
