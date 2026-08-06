@@ -278,7 +278,7 @@ std::pair<std::vector<VkVertexInputAttributeDescription>, std::vector<VkVertexIn
 		uint32_t stride = 0;
 		
 		attributeDescriptions.reserve(attributeDescriptions.size() + bind.attributeCount);
-		for(auto i = bind.firstAttribute; i < bind.attributeCount; i++){
+		for(auto i = bind.firstAttribute; i < bind.firstAttribute + bind.attributeCount; i++){
 			attributeDescriptions.push_back(VkVertexInputAttributeDescription{
 				.location = attributes[i].location,
 				.binding = index,

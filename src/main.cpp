@@ -12,10 +12,30 @@
 //temporary
 #include<defaultShaderVertex.hpp>
 #include<defaultShaderFragment.hpp>
+#include<fastgltf/core.hpp>
+#include<fastgltf/tools.hpp>
+#include<fastgltf/glm_element_traits.hpp>
+#include<fastgltf/util.hpp>
+#include<glm/glm.hpp>
+#include<glm/gtc/matrix_transform.hpp>
+#include<glm/gtc/type_ptr.hpp>
 
-struct Vertex {
-	float pos[2];
-	float color[3];
+struct MeshData{
+	std::vector<uint32_t> indices;
+	std::vector<glm::vec3> positions;
+	std::vector<glm::vec3> normals;
+	std::vector<glm::vec2> uvs;
+	std::vector<glm::vec4> colors;
+};
+
+struct InstanceData{
+	uint32_t meshIndex;
+	glm::mat4 transform;
+};
+
+struct ModelData{
+	std::vector<MeshData> meshes;
+	std::vector<InstanceData> instances;
 };
 
 void transfer(Device& dev, ExecutionStream& str, FrameContext& frame, std::span<const std::byte> data, Buffer& dst){
@@ -51,6 +71,120 @@ void uploadImage(Device& dev, ExecutionStream& str, FrameContext& frame, std::sp
 	dev.waitOnToken(waitToken);
 }
 
+template<typename T>
+bool loadGltfAttribute(fastgltf::Asset& asset, fastgltf::Primitive& primitive, std::vector<T>& out, uint32_t initialIndex, std::string_view attribute){
+	auto attr = primitive.findAttribute(attribute);
+	if(attr == primitive.attributes.end())
+		return false;
+	auto& accessor = asset.accessors[attr->accessorIndex];
+	out.resize(out.size() + accessor.count);
+	fastgltf::iterateAccessorWithIndex<T>(asset, accessor, [&](T a, size_t index){
+		out[index + initialIndex] = a;
+	});
+	return true;
+}
+
+std::optional<ModelData> loadGltf(std::filesystem::path path){
+	fastgltf::Parser parser;
+	auto data = fastgltf::GltfDataBuffer::FromPath(path);
+	if(data.error() != fastgltf::Error::None)
+		return std::nullopt;
+	auto asset = parser.loadGltf(data.get(), path.parent_path(), fastgltf::Options::None);
+	if(asset.error() != fastgltf::Error::None)
+		return std::nullopt;
+
+	ModelData ret;
+	for(auto& mesh : asset->meshes){
+		MeshData meshData;
+		for(auto& primitive : mesh.primitives){
+			uint32_t initialVertex = meshData.positions.size();
+			
+			auto& indexAccessor = asset->accessors[primitive.indicesAccessor.value()];
+			meshData.indices.reserve(meshData.indices.size() + indexAccessor.count);
+			fastgltf::iterateAccessor<uint32_t>(asset.get(), indexAccessor, [&](uint32_t index){
+				meshData.indices.push_back(index + initialVertex);
+			});
+		
+			if(!loadGltfAttribute(asset.get(), primitive, meshData.positions, initialVertex, "POSITION"))
+				LOG_WARN << "failed to load vertex positions";
+			if(!loadGltfAttribute(asset.get(), primitive, meshData.normals, initialVertex, "NORMAL"))
+				LOG_WARN << "failed to load vertex normals";
+			if(!loadGltfAttribute(asset.get(), primitive, meshData.colors, initialVertex, "COLOR_0"))
+				LOG_WARN << "failed to load vertex colors";
+			if(!loadGltfAttribute(asset.get(), primitive, meshData.uvs, initialVertex, "TEXCOORD_0"))
+				LOG_WARN << "failed to load texture coordinates";
+		}
+		ret.meshes.push_back(meshData);
+	}
+	fastgltf::iterateSceneNodes(asset.get(), 0, fastgltf::math::fmat4x4(), [&](fastgltf::Node& node, fastgltf::math::fmat4x4 matrix){
+		if(node.meshIndex)
+			ret.instances.emplace_back(InstanceData{
+				.meshIndex = static_cast<uint32_t>(node.meshIndex.value()),
+				.transform = glm::make_mat4(matrix.data())
+			});
+	});
+	return ret;
+}
+
+struct Mesh{
+	uint32_t indexCount;
+	Buffer indices;
+	Buffer positions;
+	Buffer normals;
+	// Buffer colors;
+	Buffer uvs;
+};
+
+struct Instance{
+	Buffer instancedData;
+	uint32_t instanceCount;
+	uint32_t meshIndex;
+};
+
+struct Model{
+	std::vector<Mesh> meshes;
+	std::vector<Instance> instances;
+};
+
+Model uploadModel(ModelData data, Device& dev, ExecutionStream& transferStream, FrameContext& frame){
+	Model ret;
+	for(auto& mesh : data.meshes){
+		Buffer indices(dev, mesh.indices.size() * sizeof(uint32_t), BufferUsage::Index, BufferAccess::Immutable);
+		transfer(dev, transferStream, frame, std::as_bytes(std::span{mesh.indices}), indices);
+
+		Buffer positions(dev, mesh.positions.size() * sizeof(glm::vec3), BufferUsage::Vertex, BufferAccess::Immutable);
+		transfer(dev, transferStream, frame, std::as_bytes(std::span{mesh.positions}), positions);
+		
+		Buffer normals(dev, mesh.normals.size() * sizeof(glm::vec3), BufferUsage::Vertex, BufferAccess::Immutable);
+		transfer(dev, transferStream, frame, std::as_bytes(std::span{mesh.normals}), normals);
+		
+		// Buffer colors(dev, mesh.colors.size() * sizeof(glm::vec4), BufferUsage::Vertex, BufferAccess::Immutable);
+		// transfer(dev, transferStream, frame, std::as_bytes(std::span{mesh.colors}), colors);
+		
+		Buffer uvs(dev, mesh.uvs.size() * sizeof(glm::vec2), BufferUsage::Vertex, BufferAccess::Immutable);
+		transfer(dev, transferStream, frame, std::as_bytes(std::span{mesh.uvs}), uvs);
+		
+		ret.meshes.emplace_back(Mesh{static_cast<uint32_t>(mesh.indices.size()),
+			std::move(indices), std::move(positions), std::move(normals), /*std::move(colors), */std::move(uvs)
+		});
+	}
+
+	std::unordered_map<uint32_t, std::vector<glm::mat4>> instancedTransforms;
+	for(auto& instance : data.instances)
+		instancedTransforms[instance.meshIndex].emplace_back(instance.transform);
+	for(auto& [meshIndex, transform] : instancedTransforms){
+		Buffer instancedData(dev, transform.size() * sizeof(glm::mat4), BufferUsage::Vertex, BufferAccess::Immutable);
+		transfer(dev, transferStream, frame, std::as_bytes(std::span{transform}), instancedData);
+		ret.instances.emplace_back(Instance{
+			.instancedData = std::move(instancedData),
+			.instanceCount = static_cast<uint32_t>(transform.size()),
+			.meshIndex = meshIndex
+		});
+	}
+	
+	return ret;
+}
+
 int main(){
 	initLogger();
 	setFilter(LogSeverity::debug);
@@ -76,48 +210,27 @@ int main(){
 		.addShader(shaders[0])
 		.addShader(shaders[1])
 		.setRenderContext(con)
-		.addBinding(0, 2);
+		.addBinding(0, 1)
+		.addBinding(1, 1)
+		.addBinding(2, 1)
+		.addBinding(3, 4, true);
 	auto pipeline = builder.getResult(dev);
 	FrameContext frame(dev);
 	ExecutionStream transferStream(dev, {VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT }, 3);
 	ExecutionStream graphicsStream(dev, {VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT}, 3);
 
-	// const std::vector<Vertex> vertices = {
-	// 	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-	// 	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-	// 	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-	// 	{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
-	// };
-	
-	const std::vector<Vertex> vertices = {
-		{{-0.5f, -0.5f}, {0.0f, 0.0f, 0.0f}},
-		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-		{{0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}},
-		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
-	};
-	Buffer vbo(dev, vertices.size() * sizeof(Vertex), BufferUsage::Vertex, BufferAccess::Immutable);
-	transfer(dev, transferStream, frame, std::as_bytes(std::span{vertices}), vbo);
-	const std::vector<uint32_t> indices = {
-		0, 1, 2, 2, 3, 0
-	};
-	Buffer ibo(dev, indices.size() * sizeof(uint32_t), BufferUsage::Index, BufferAccess::Immutable);
-	transfer(dev, transferStream, frame, std::as_bytes(std::span{indices}), ibo);
-
-	std::vector<uint32_t> redSquareData(32 * 32, 0xaaff0000);
-	auto redSquareImage = Image(dev, 32, 32, 1, VK_FORMAT_R8G8B8A8_SRGB);
-	uploadImage(dev, transferStream, frame, std::as_bytes(std::span{redSquareData}), redSquareImage);
-	auto redSquareSampler = Sampler(dev);
-	auto texHandle = dev.getBindless().storeTexture(std::move(redSquareImage), std::move(redSquareSampler));
-
-	UBO uboData = {0.5f, 0.0f};
-	Buffer ubo(dev, sizeof(UBO), BufferUsage::Storage, BufferAccess::Immutable);
-	transfer(dev, transferStream, frame, std::as_bytes(std::span{&uboData, 1}), ubo);
-	auto uboHandle = dev.getBindless().storeBuffer(std::move(ubo));
+	Model model;
+	if(auto data = loadGltf("ABeautifulGame.glb"))
+		model = uploadModel(data.value(), dev, transferStream, frame);
 
 	auto beginRecord = [&](Image& image, CommandList& cmd){
 		cmd.begin();
 		cmd.transition(ImageLayout::attachment, image);
 	};
+	auto view = glm::lookAt(glm::vec3{1.0f, 1.0f, 0.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f});
+	auto proj = glm::perspective(glm::radians(45.0f), 1080.0f / 720.0f, 0.1f, 100.0f);
+	proj[1][1] *= -1;
+	auto transform =  proj * view;
 
 	auto draw = [&](Image& image, CommandList& cmd){
 		cmd.beginRender(image);
@@ -125,11 +238,16 @@ int main(){
 		cmd.setViewPort(1080, 720, 0, 0);
 		cmd.setScissor(1080, 720, 0, 0);
 		cmd.bindDescriptor(0, dev.getBindless().getSet());
-		cmd.pushConstant("Index", uboHandle);
-		cmd.pushConstant("TextureIndex", texHandle);
-		cmd.bindVertexBuffer(vbo);
-		cmd.bindIndexBuffer(ibo);
-		cmd.drawIndexed(indices.size());
+		cmd.pushConstant("trans", transform);
+		for(auto& instance : model.instances){
+			auto& mesh = model.meshes[instance.meshIndex];
+			cmd.bindVertexBuffer(mesh.positions, 0);
+			cmd.bindVertexBuffer(mesh.normals, 1);
+			cmd.bindVertexBuffer(mesh.uvs, 2);
+			cmd.bindIndexBuffer(mesh.indices);
+			cmd.bindVertexBuffer(instance.instancedData, 3);
+			cmd.drawIndexed(mesh.indexCount, instance.instanceCount);
+		}
 		cmd.endRender();
 	};
 

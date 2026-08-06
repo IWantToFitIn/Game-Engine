@@ -14,16 +14,18 @@ layout(std430, set = 0, binding = 1) readonly buffer bindlessStorages{
 	vec4 padding3;
 } stores[];
 
-layout(location = 0) in vec2 inPosition;
-layout(location = 1) in vec3 inColor;
+layout(location = 0) in vec3 inPosition;
+layout(location = 1) in vec3 inNormal;
+layout(location = 2) in vec2 inUv;
+layout(location = 3) in mat4 model;
 
 layout(push_constant) uniform PushConstants {
-	uint Index;
+	mat4 trans;
 };
 
 layout(location = 0) out vec3 fragColor;
 
 void main() {
-	gl_Position = vec4(inPosition, 0.0, 1.0) + stores[Index].offset;
-	fragColor = inColor;
+	gl_Position = trans * model * vec4(inPosition, 1.0);
+	fragColor = vec3(inUv, 1.0);
 }

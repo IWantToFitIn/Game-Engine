@@ -18,10 +18,17 @@ void Shader::reflectInputVariables(SpvReflectShaderModule& shaderReflect){
 
 	mAttributes.reserve(inputVariables.size());
 	for(auto& input : inputVariables)
-		mAttributes.push_back({
-			.location = input->location,
-			.format = static_cast<VkFormat>(input->format),
-		});
+		if(input->type_description->type_flags & SPV_REFLECT_TYPE_FLAG_MATRIX){
+			for(auto col = 0; col < input->numeric.matrix.column_count; col++)
+				mAttributes.push_back({
+					.location = input->location + col,
+					.format = static_cast<VkFormat>(input->format)
+				});
+		} else
+			mAttributes.push_back({
+				.location = input->location,
+				.format = static_cast<VkFormat>(input->format)
+			});
 	
 }
 

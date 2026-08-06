@@ -17,6 +17,7 @@ struct PushConstantMetadata{
 struct Attribute{
 	uint32_t location;
 	VkFormat format;
+	bool isMatrix;
 };
 
 class Shader{

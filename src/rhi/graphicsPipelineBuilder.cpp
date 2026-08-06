@@ -27,9 +27,9 @@ PipelineBuilder& GraphicsPipelineBuilder::addShader(const Shader& shader){
 }
 
 PipelineBuilder& GraphicsPipelineBuilder::addBinding(uint32_t firstAttribute, uint32_t attributeCount, bool instanceInputRate){
-	auto lastAttribute = firstAttribute + attributeCount;
+	auto lastAttribute = firstAttribute + attributeCount - 1;
 	for(const auto& bind : mBindings){
-		auto lastBindAttribute = bind.firstAttribute + bind.attributeCount;
+		auto lastBindAttribute = bind.firstAttribute + bind.attributeCount - 1;
 		if(firstAttribute <= lastBindAttribute && bind.firstAttribute <= lastAttribute){
 			LOG_WARN << "binding not accepted, it overlaps with a previously declared one";
 			return *this;
