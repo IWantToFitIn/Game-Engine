@@ -5,7 +5,6 @@
 #include<renderContext.hpp>
 #include<graphicsPipeline.hpp>
 #include<commandPool.hpp>
-#include<frameContext.hpp>
 #include<buffer.hpp>
 #include<sampler.hpp>
 #include<pipelineBuilder.hpp>
@@ -19,6 +18,8 @@
 #include<glm/glm.hpp>
 #include<glm/gtc/matrix_transform.hpp>
 #include<glm/gtc/type_ptr.hpp>
+
+constexpr size_t gFramesInFlight = 2;
 
 struct MeshData{
 	std::vector<uint32_t> indices;
@@ -38,10 +39,10 @@ struct ModelData{
 	std::vector<InstanceData> instances;
 };
 
-void transfer(Device& dev, ExecutionStream& str, FrameContext& frame, std::span<const std::byte> data, Buffer& dst){
+void transfer(Device& dev, ExecutionStream& str, CommandPool& transferPool, std::span<const std::byte> data, Buffer& dst){
 	Buffer trans(dev, data.size(), BufferUsage::Transfer, BufferAccess::HostMutable);
 	trans.copyMemory(data);
-	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
+	auto transCmd = transferPool.allocateCommand(true);
 	transCmd.begin();
 	transCmd.copyBuffer(trans, dst, data.size(), 0);
 	transCmd.end();
@@ -57,10 +58,10 @@ struct alignas(16) UBO{
 	float padding3[4];
 };
 
-void uploadImage(Device& dev, ExecutionStream& str, FrameContext& frame, std::span<const std::byte> data, Image& dst){
+void uploadImage(Device& dev, ExecutionStream& str, CommandPool& transferPool, std::span<const std::byte> data, Image& dst){
 	Buffer trans(dev, data.size(), BufferUsage::Transfer, BufferAccess::HostMutable);
 	trans.copyMemory(data);
-	auto transCmd = std::move(frame.getTransferBuffers(1)[0]);
+	auto transCmd = transferPool.allocateCommand(true);
 	transCmd.begin();
 	transCmd.transition(ImageLayout::transferDst, dst);
 	transCmd.uploadImage(trans, dst);
@@ -146,23 +147,23 @@ struct Model{
 	std::vector<Instance> instances;
 };
 
-Model uploadModel(ModelData data, Device& dev, ExecutionStream& transferStream, FrameContext& frame){
+Model uploadModel(ModelData data, Device& dev, ExecutionStream& transferStream, CommandPool& transferPool){
 	Model ret;
 	for(auto& mesh : data.meshes){
 		Buffer indices(dev, mesh.indices.size() * sizeof(uint32_t), BufferUsage::Index, BufferAccess::Immutable);
-		transfer(dev, transferStream, frame, std::as_bytes(std::span{mesh.indices}), indices);
+		transfer(dev, transferStream, transferPool, std::as_bytes(std::span{mesh.indices}), indices);
 
 		Buffer positions(dev, mesh.positions.size() * sizeof(glm::vec3), BufferUsage::Vertex, BufferAccess::Immutable);
-		transfer(dev, transferStream, frame, std::as_bytes(std::span{mesh.positions}), positions);
+		transfer(dev, transferStream, transferPool, std::as_bytes(std::span{mesh.positions}), positions);
 		
 		Buffer normals(dev, mesh.normals.size() * sizeof(glm::vec3), BufferUsage::Vertex, BufferAccess::Immutable);
-		transfer(dev, transferStream, frame, std::as_bytes(std::span{mesh.normals}), normals);
+		transfer(dev, transferStream, transferPool, std::as_bytes(std::span{mesh.normals}), normals);
 		
 		// Buffer colors(dev, mesh.colors.size() * sizeof(glm::vec4), BufferUsage::Vertex, BufferAccess::Immutable);
-		// transfer(dev, transferStream, frame, std::as_bytes(std::span{mesh.colors}), colors);
+		// transfer(dev, transferStream, transferPool, std::as_bytes(std::span{mesh.colors}), colors);
 		
 		Buffer uvs(dev, mesh.uvs.size() * sizeof(glm::vec2), BufferUsage::Vertex, BufferAccess::Immutable);
-		transfer(dev, transferStream, frame, std::as_bytes(std::span{mesh.uvs}), uvs);
+		transfer(dev, transferStream, transferPool, std::as_bytes(std::span{mesh.uvs}), uvs);
 		
 		ret.meshes.emplace_back(Mesh{static_cast<uint32_t>(mesh.indices.size()),
 			std::move(indices), std::move(positions), std::move(normals), /*std::move(colors), */std::move(uvs)
@@ -174,7 +175,7 @@ Model uploadModel(ModelData data, Device& dev, ExecutionStream& transferStream, 
 		instancedTransforms[instance.meshIndex].emplace_back(instance.transform);
 	for(auto& [meshIndex, transform] : instancedTransforms){
 		Buffer instancedData(dev, transform.size() * sizeof(glm::mat4), BufferUsage::Vertex, BufferAccess::Immutable);
-		transfer(dev, transferStream, frame, std::as_bytes(std::span{transform}), instancedData);
+		transfer(dev, transferStream, transferPool, std::as_bytes(std::span{transform}), instancedData);
 		ret.instances.emplace_back(Instance{
 			.instancedData = std::move(instancedData),
 			.instanceCount = static_cast<uint32_t>(transform.size()),
@@ -215,13 +216,17 @@ int main(){
 		.addBinding(2, 1)
 		.addBinding(3, 4, true);
 	auto pipeline = builder.getResult(dev);
-	FrameContext frame(dev);
 	ExecutionStream transferStream(dev, {VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT }, 3);
 	ExecutionStream graphicsStream(dev, {VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT}, 3);
+	auto transferPool = dev.createCommandPool(CommandUse::copy).value();
+	std::array<CommandPool, gFramesInFlight> graphicsPools = {
+		dev.createCommandPool(CommandUse::draw).value(),
+		dev.createCommandPool(CommandUse::draw).value()
+	};
 
 	Model model;
 	if(auto data = loadGltf("ABeautifulGame.glb"))
-		model = uploadModel(data.value(), dev, transferStream, frame);
+		model = uploadModel(data.value(), dev, transferStream, transferPool);
 
 	auto beginRecord = [&](Image& image, CommandList& cmd){
 		cmd.begin();
@@ -256,17 +261,22 @@ int main(){
 		cmd.end();
 	};
 
+	std::array<SyncToken, gFramesInFlight> fences;
+	std::array<CommandList, gFramesInFlight> commands = {
+		graphicsPools[0].allocateCommand(true),
+		graphicsPools[1].allocateCommand(true)
+	};
+	uint32_t currentFrame = 0;
 	while(win.process()){
-		frame.prepareFrame();
-		
+		dev.waitOnToken(fences[currentFrame]);
+		graphicsPools[currentFrame].reset();
+
 		auto imageToken = con.popNextImage();
 		auto image = con.getImage();
 		auto presentToken = con.getRenderFinishedToken();
 		auto workFinishedToken = graphicsStream.acquireNextToken();
 
-		//memory leak, probably somewhere here
-		//frame Context should be removed
-		auto cmd = std::move(frame.getGraphicsBuffers(1)[0]);
+		auto& cmd = commands[currentFrame];
 
 		beginRecord(image, cmd);
 		draw(image, cmd);
@@ -275,7 +285,8 @@ int main(){
 		dev.submit(cmd, {&imageToken, 1}, signalTokens);
 		con.present();
 		
-		frame.finishFrame(workFinishedToken);
+		fences[currentFrame] = workFinishedToken;
+		currentFrame = (currentFrame + 1) % gFramesInFlight;
 		graphicsStream.finalizePass();
 	}
 	dev.waitTillIdle();

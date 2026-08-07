@@ -341,6 +341,13 @@ std::optional<std::reference_wrapper<const Queue>> Device::getQueue(CommandUse u
 	return std::nullopt;
 }
 
+std::optional<CommandPool> Device::createCommandPool(CommandUse use){
+	for(const auto& queue : mQueues)
+		if(queue.intendedFor(use))
+			return CommandPool(*this, use, queue.getIndex());
+	return std::nullopt;
+}
+
 void Device::waitTillIdle() const{
 	vkDeviceWaitIdle(mDevice);
 }
@@ -360,6 +367,8 @@ void Device::waitOnToken(SyncToken token, uint64_t timeout) const{
 	//compare with vk_succes or vk_timeout?
 	vkWaitSemaphores(mDevice, &wait, timeout);
 }
+
+REGISTER_DEVICE_FEATURE(static_cast<size_t>(Features::FeatureIndex::synchronization2));
 void Device::submit(CommandList& cmd, std::span<SyncToken> waitTokens, std::span<SyncToken> signalTokens){
 	auto queueOpt = getQueue(cmd.getPurpose());
 	if(!queueOpt){

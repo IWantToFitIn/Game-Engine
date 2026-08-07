@@ -6,17 +6,20 @@
 #include<image.hpp>
 
 class CommandList{
+	VkDevice mDevice;
+	VkCommandPool mPool;
 	VkCommandBuffer mCommand;
 	CommandUse mPurpose;
 	VkPipelineLayout mCurrentLayout{};
 	GraphicsPipeline* mCurrentPipeline{nullptr};
+	bool mMoved{false};
 public:
-	CommandList(VkCommandBuffer, CommandUse);
+	CommandList(VkDevice, VkCommandPool, VkCommandBuffer, CommandUse);
 	CommandList(CommandList&) = delete;
 	CommandList& operator=(CommandList&) = delete;
-	CommandList(CommandList&&) = default;
-	CommandList& operator=(CommandList&&) = default;
-	~CommandList() = default;
+	CommandList(CommandList&&);
+	CommandList& operator=(CommandList&&);
+	~CommandList();
 
 	void begin();
 	void transition(ImageLayout, Image&);

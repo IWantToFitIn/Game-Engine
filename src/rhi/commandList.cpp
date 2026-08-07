@@ -1,9 +1,37 @@
 #include"include/commandList.hpp"
 #include<log.hpp>
 
-CommandList::CommandList(VkCommandBuffer cmd, CommandUse purpose){
+CommandList::CommandList(VkDevice d, VkCommandPool p, VkCommandBuffer cmd, CommandUse purpose){
+	mDevice = d;
+	mPool = p;
 	mCommand = cmd;
 	mPurpose = purpose;
+}
+
+CommandList::CommandList(CommandList&& o){
+	mDevice = o.mDevice;
+	mPool = o.mPool;
+	mCommand = o.mCommand;
+	mPurpose = o.mPurpose;
+	mCurrentLayout = o.mCurrentLayout;
+	mCurrentPipeline = o.mCurrentPipeline;
+	o.mMoved = true;
+}
+
+CommandList& CommandList::operator=(CommandList&& o){
+	mDevice = o.mDevice;
+	mPool = o.mPool;
+	mCommand = o.mCommand;
+	mPurpose = o.mPurpose;
+	mCurrentPipeline = o.mCurrentPipeline;
+	mCurrentLayout = o.mCurrentLayout;
+	o.mMoved = true;
+	return *this;
+}
+
+CommandList::~CommandList(){
+	if(mMoved) return;
+	vkFreeCommandBuffers(mDevice, mPool, 1, &mCommand);
 }
 
 void CommandList::begin(){

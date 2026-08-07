@@ -1,11 +1,12 @@
 #include"include/commandPool.hpp"
+#include"include/device.hpp"
 #include<log.hpp>
 
 CommandPool::CommandPool(Device& dev, CommandUse use, uint32_t queue) : mDevice(dev){
 	mPurpose = use;
 	VkCommandPoolCreateInfo create = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
 		.queueFamilyIndex = queue,
 	};
 	if(vkCreateCommandPool(mDevice.get().getDevice(), &create, nullptr, &mPool) != VK_SUCCESS)
@@ -47,7 +48,7 @@ std::vector<CommandList> CommandPool::allocateCommands(uint32_t count, bool prim
 	std::vector<CommandList> ret;
 	ret.reserve(bufs.size());
 	for(const auto& buf : bufs)
-		ret.emplace_back(buf, mPurpose);
+		ret.emplace_back(mDevice.get().getDevice(), mPool, buf, mPurpose);
 	return ret;
 }
 

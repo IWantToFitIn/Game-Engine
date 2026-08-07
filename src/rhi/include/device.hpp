@@ -13,6 +13,7 @@
 #include<commandList.hpp>
 #include<bindlessParams.hpp>
 #include<executionStream.hpp>
+#include<commandPool.hpp>
 
 class Device{
 	struct FeatureChain;
@@ -47,6 +48,7 @@ public:
 	std::optional<std::reference_wrapper<const Queue>> getQueue(CommandUse use) const;
 	BindlessParams& getBindless() { return *mBindlessParams; };
 
+	std::optional<CommandPool> createCommandPool(CommandUse use);
 	void waitTillIdle() const;
 	void waitOnToken(SyncToken, uint64_t timeout = UINT64_MAX) const;
 	void submit(CommandList&, std::span<SyncToken> waitTokens, std::span<SyncToken> signalTokens);

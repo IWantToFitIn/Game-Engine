@@ -1,8 +1,9 @@
 #pragma once
 #include<vulkan/vulkan.h>
-#include<device.hpp>
 #include<vector>
 #include<commandList.hpp>
+
+class Device;
 
 class CommandPool{
 	std::reference_wrapper<Device> mDevice;

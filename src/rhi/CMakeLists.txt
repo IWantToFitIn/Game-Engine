@@ -28,7 +28,6 @@ add_library(rhi STATIC
 	shader.cpp
 	graphicsPipeline.cpp
 	CommandPool.cpp
-	frameContext.cpp
 	queue.cpp
 	commandList.cpp
 	buffer.cpp
